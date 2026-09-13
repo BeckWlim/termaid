@@ -44,6 +44,8 @@ def render(
     rounded_edges: bool = True,
     gap: int = 4,
     inline_edge_labels: bool = False,
+    max_label_width: int | None = None,
+    force_vertical: bool = False,
 ) -> str:
     """Render mermaid syntax as Unicode (or ASCII) art.
 
@@ -76,7 +78,12 @@ def render(
         from .parser.sequence import parse_sequence_diagram
         from .renderer.sequence import render_sequence
         diagram = parse_sequence_diagram(text)
-        return render_sequence(diagram, use_ascii=use_ascii, **_extra).to_string()
+        return render_sequence(
+            diagram,
+            use_ascii=use_ascii,
+            max_label_width=max_label_width,
+            **_extra,
+        ).to_string()
 
     if text.startswith("classDiagram"):
         from .parser.classdiagram import parse_class_diagram
@@ -172,6 +179,9 @@ def render(
         return render_quadrant(diagram, use_ascii=use_ascii).to_string()
 
     graph = parse(text)
+    if force_vertical and graph.direction.normalized().is_horizontal:
+        from .graph.model import Direction
+        graph.direction = Direction.TB
     from .output.text import render_text
     return render_text(
         graph,
@@ -181,6 +191,7 @@ def render(
         rounded_edges=rounded_edges,
         gap=gap,
         inline_edge_labels=inline_edge_labels,
+        max_label_width=max_label_width,
     )
 
 
@@ -194,6 +205,8 @@ def render_rich(
     theme: str = "default",
     gap: int = 4,
     inline_edge_labels: bool = False,
+    max_label_width: int | None = None,
+    force_vertical: bool = False,
 ):
     """Render mermaid syntax as a Rich Text object with colors.
 
@@ -223,7 +236,12 @@ def render_rich(
         from .renderer.sequence import render_sequence
         from .output.rich import render_sequence_rich
         diagram = parse_sequence_diagram(text)
-        canvas = render_sequence(diagram, use_ascii=use_ascii, **_extra_r)
+        canvas = render_sequence(
+            diagram,
+            use_ascii=use_ascii,
+            max_label_width=max_label_width,
+            **_extra_r,
+        )
         return render_sequence_rich(canvas, theme=theme)
 
     if text.startswith("classDiagram"):
@@ -345,6 +363,9 @@ def render_rich(
         return render_sequence_rich(canvas, theme=theme)
 
     graph = parse(text)
+    if force_vertical and graph.direction.normalized().is_horizontal:
+        from .graph.model import Direction
+        graph.direction = Direction.TB
     from .output.rich import render_rich as _render_rich
     return _render_rich(
         graph,
@@ -355,6 +376,7 @@ def render_rich(
         theme=theme,
         gap=gap,
         inline_edge_labels=inline_edge_labels,
+        max_label_width=max_label_width,
     )
 
 

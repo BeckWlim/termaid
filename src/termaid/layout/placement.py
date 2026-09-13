@@ -7,7 +7,7 @@ from __future__ import annotations
 
 from ..graph.model import Direction, Graph
 from ..graph.shapes import NodeShape
-from ..utils import display_width
+from ..utils import display_width, wrap_display_text
 from .grid import (
     STRIDE,
     MAX_LABEL_WIDTH,
@@ -72,26 +72,6 @@ def _can_place(layout: GridLayout, gc: GridCoord) -> bool:
     return True
 
 
-def _word_wrap(text: str, max_width: int) -> list[str]:
-    """Split text at word boundaries, keeping lines under max_width."""
-    words = text.split()
-    if not words:
-        return [text]
-
-    lines: list[str] = []
-    current_line = words[0]
-
-    for word in words[1:]:
-        if display_width(current_line) + 1 + display_width(word) <= max_width:
-            current_line += " " + word
-        else:
-            lines.append(current_line)
-            current_line = word
-
-    lines.append(current_line)
-    return lines
-
-
 def normalize_sizes(graph: Graph, layout: GridLayout) -> None:
     """Normalize node dimensions within the same layer, capped at a maximum.
 
@@ -139,6 +119,7 @@ def compute_sizes(
     padding_x: int,
     padding_y: int,
     gap: int = 4,
+    max_label_width: int | None = None,
 ) -> None:
     """Compute column widths and row heights based on node content."""
     for nid, placement in layout.placements.items():
@@ -155,17 +136,26 @@ def compute_sizes(
         label = node.label
         lines = label.split("\\n") if "\\n" in label else [label]
 
-        # Word-wrap lines that exceed max width
+        # Preserve the historical whitespace-only wrapping unless a caller
+        # explicitly supplies a width-fitting constraint.
+        label_width = max_label_width or MAX_LABEL_WIDTH
         wrapped_lines: list[str] = []
         for line in lines:
-            if display_width(line) <= MAX_LABEL_WIDTH:
+            if display_width(line) <= label_width:
                 wrapped_lines.append(line)
             else:
-                wrapped_lines.extend(_word_wrap(line, MAX_LABEL_WIDTH))
+                wrapped_lines.extend(wrap_display_text(
+                    line,
+                    label_width,
+                    hard_break=max_label_width is not None,
+                ))
 
         # Update the node's label with wrapped text
         if len(wrapped_lines) > 1 and wrapped_lines != lines:
             node.label = "\\n".join(wrapped_lines)
+            # Styled label segments describe one source line. Retaining them
+            # would redraw the unwrapped label over the fitted node.
+            node.label_segments = None
 
         text_width = max(display_width(l) for l in wrapped_lines) if wrapped_lines else 0
         text_height = len(wrapped_lines)

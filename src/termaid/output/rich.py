@@ -61,6 +61,7 @@ def render_rich(
     theme: str = "default",
     gap: int = 4,
     inline_edge_labels: bool = False,
+    max_label_width: int | None = None,
 ) -> Text:
     """Render a graph as a Rich Text object with colors.
 
@@ -82,6 +83,7 @@ def render_rich(
         rounded_edges=rounded_edges,
         gap=gap,
         inline_edge_labels=inline_edge_labels,
+        max_label_width=max_label_width,
     )
     if canvas is None:
         return Text("")

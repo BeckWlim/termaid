@@ -1,6 +1,7 @@
 """Tests for the CLI interface."""
 from __future__ import annotations
 
+import json
 import subprocess
 import sys
 import tempfile
@@ -9,6 +10,7 @@ from pathlib import Path
 import pytest
 
 from termaid.cli import main
+from termaid.utils import display_width
 
 
 class TestCliMain:
@@ -47,6 +49,25 @@ class TestCliMain:
 
 
 class TestCliOutput:
+    def test_styled_json_is_semantic_and_independent_of_rich(
+        self, tmp_path: Path, capsys, monkeypatch
+    ):
+        mmd = tmp_path / "styled.mmd"
+        mmd.write_text("graph LR\n  A[Start] -->|yes| B[Done]\n")
+        monkeypatch.setenv("NO_COLOR", "1")
+        result = main([str(mmd), "--format", "styled-json"])
+        captured = capsys.readouterr()
+        payload = json.loads(captured.out)
+        chunks = [chunk for line in payload["lines"] for chunk in line]
+        assert result == 0
+        assert captured.err == ""
+        assert payload["version"] == 1
+        assert {chunk["style"] for chunk in chunks} >= {
+            "node", "edge", "arrow", "edge_label"
+        }
+        assert "Start" in "".join(chunk["text"] for chunk in chunks)
+        assert "\x1b" not in captured.out
+
     def test_output_flag(self, tmp_path: Path):
         mmd = tmp_path / "test.mmd"
         mmd.write_text("graph LR\n  A --> B")
@@ -79,6 +100,105 @@ class TestCliWidth:
         mmd.write_text("graph LR\n  A-->B")
         result = main([str(mmd), "--width", "200"])
         assert result == 0
+
+    def test_strict_width_requires_explicit_target(self, capsys):
+        result = main(["--strict-width"])
+        captured = capsys.readouterr()
+        assert result == 2
+        assert captured.out == ""
+        assert "requires --width" in captured.err
+
+    def test_strict_width_reflows_and_wraps_long_tokens(self, tmp_path: Path, capsys):
+        mmd = tmp_path / "long-token-flow.mmd"
+        mmd.write_text(
+            "flowchart LR\n"
+            "  A[StartProcessingWithoutSpaces] --> "
+            "B[ContinueProcessingWithoutSpaces] --> C[Done]\n"
+        )
+        result = main([
+            str(mmd), "--width", "40", "--strict-width",
+            "--fit-mode", "reflow",
+        ])
+        captured = capsys.readouterr()
+        assert result == 0
+        assert captured.err == ""
+        assert "►" in captured.out
+        assert all(display_width(line) <= 40 for line in captured.out.splitlines())
+
+    def test_strict_width_wraps_sequence_text(self, tmp_path: Path, capsys):
+        mmd = tmp_path / "sequence.mmd"
+        mmd.write_text(
+            "sequenceDiagram\n"
+            "  participant A as AlphaLongParticipant\n"
+            "  participant B as BetaLongParticipant\n"
+            "  A->>B: LongMessageWithoutAnySpacesInIt\n"
+        )
+        result = main([
+            str(mmd), "--width", "40", "--strict-width",
+            "--fit-mode", "reflow",
+        ])
+        captured = capsys.readouterr()
+        assert result == 0
+        assert captured.err == ""
+        assert "►" in captured.out
+        assert all(display_width(line) <= 40 for line in captured.out.splitlines())
+
+    def test_strict_width_uses_available_sequence_width(self, tmp_path: Path, capsys):
+        mmd = tmp_path / "adaptive-sequence.mmd"
+        mmd.write_text(
+            "sequenceDiagram\n"
+            "  participant A as Request Client\n"
+            "  participant B as Storage Client\n"
+            "  participant C as Metadata Service\n"
+            "  participant D as Shard Lock\n"
+            "  participant E as Eviction Worker\n"
+            "  A->>B: Start a storage request\n"
+            "  B->>C: Resolve replica metadata and acquire lease\n"
+            "  C->>D: Wait for shared shard access\n"
+            "  E->>D: Apply eviction candidate under exclusive access\n"
+            "  D-->>C: Release shared access\n"
+            "  C-->>B: Return the selected replica descriptor\n"
+            "  B-->>A: Complete payload transfer and validation\n"
+        )
+        result = main([
+            str(mmd), "--width", "120", "--strict-width",
+            "--fit-mode", "reflow",
+        ])
+        captured = capsys.readouterr()
+        rendered_width = max(
+            display_width(line) for line in captured.out.splitlines()
+        )
+        assert result == 0
+        assert captured.err == ""
+        assert 108 <= rendered_width <= 120
+
+    def test_strict_width_never_emits_oversized_canvas(self, tmp_path: Path, capsys):
+        mmd = tmp_path / "impossible.mmd"
+        mmd.write_text(
+            "sequenceDiagram\n"
+            "  participant A\n"
+            "  participant B\n"
+            "  participant C\n"
+            "  participant D\n"
+            "  participant E\n"
+        )
+        result = main([
+            str(mmd), "--width", "8", "--strict-width",
+            "--fit-mode", "reflow",
+        ])
+        captured = capsys.readouterr()
+        assert result == 2
+        assert captured.out == ""
+        assert "target is 8" in captured.err
+
+    def test_max_height_never_emits_oversized_canvas(self, tmp_path: Path, capsys):
+        mmd = tmp_path / "tall.mmd"
+        mmd.write_text("graph TD\n  A --> B --> C\n")
+        result = main([str(mmd), "--max-height", "2"])
+        captured = capsys.readouterr()
+        assert result == 2
+        assert captured.out == ""
+        assert "exceeds 2 output rows" in captured.err
 
 
 class TestCliNoColor:

@@ -9,7 +9,7 @@ from ..model.sequence import ActivateEvent, Block, BlockSection, DestroyEvent, M
 from .canvas import Canvas
 from .charset import ASCII, UNICODE, CharSet
 from .shapes import draw_rectangle, draw_cylinder
-from ..utils import display_width
+from ..utils import display_width, wrap_display_text
 
 
 # ── layout constants ──────────────────────────────────────────────
@@ -82,6 +82,30 @@ def _note_lines(note: Note) -> list[str]:
     return note.text.split("\n") if "\n" in note.text else [note.text]
 
 
+def _label_lines(label: str) -> list[str]:
+    return label.split("\n") if "\n" in label else [label]
+
+
+def _wrap_sequence_events(events: list, max_width: int) -> None:
+    """Wrap event-owned text before sequence dimensions are computed."""
+    for event in events:
+        if isinstance(event, Message):
+            event.label = "\n".join(wrap_display_text(event.label, max_width))
+        elif isinstance(event, Note):
+            event.text = "\n".join(wrap_display_text(event.text, max_width))
+        elif isinstance(event, Block):
+            _wrap_sequence_events(event.events, max_width)
+            for section in event.sections:
+                _wrap_sequence_events(section.events, max_width)
+
+
+def _participant_height(participant) -> int:
+    line_count = len(_label_lines(participant.label))
+    if participant.kind == "participant":
+        return line_count + 2
+    return _KIND_HEIGHT.get(participant.kind, 3) + line_count - 1
+
+
 def _participant_index(diagram: SequenceDiagram, pid: str) -> int:
     for i, p in enumerate(diagram.participants):
         if p.id == pid:
@@ -113,10 +137,14 @@ def _compute_layout(
         return [], [], 0, 0, 0, []
 
     # Box widths based on label length
-    box_widths = [display_width(p.label) + padding_x + 2 for p in diagram.participants]  # +2 for borders
+    box_widths = [
+        max(display_width(line) for line in _label_lines(p.label))
+        + padding_x + 2
+        for p in diagram.participants
+    ]  # +2 for borders
 
     # Header height: tallest participant kind
-    header_height = max(_KIND_HEIGHT.get(p.kind, 3) for p in diagram.participants)
+    header_height = max(_participant_height(p) for p in diagram.participants)
 
     # Compute per-event heights and effective labels for gap computation
     event_heights: list[int] = []
@@ -148,11 +176,12 @@ def _compute_layout(
             msg_counter += 1
             eff = _effective_label(ev, msg_counter if autonumber else None)
             effective_labels.append(eff)
+            label_line_count = len(_label_lines(eff))
             if ev.source == ev.target:
                 # Self-messages draw a 2-row loop below the label row
-                event_heights.append(_EVENT_ROW_H + 1)
+                event_heights.append(_EVENT_ROW_H + label_line_count)
             else:
-                event_heights.append(_EVENT_ROW_H)
+                event_heights.append(_EVENT_ROW_H + label_line_count - 1)
         else:
             event_heights.append(0)
             effective_labels.append("")
@@ -198,7 +227,7 @@ def _compute_layout(
         if si < 0 or ti < 0 or si == ti:
             continue
         lo, hi = min(si, ti), max(si, ti)
-        label_need = display_width(eff) + 6  # padding for arrow + spacing
+        label_need = max(display_width(line) for line in _label_lines(eff)) + 6
         spans = hi - lo
         per_gap = (label_need + spans - 1) // spans
         for g in range(lo, hi):
@@ -217,7 +246,10 @@ def _compute_layout(
             si = _participant_index(diagram, ev.source)
             ti = _participant_index(diagram, ev.target)
             if si >= 0 and si == ti:
-                loop_width = max(display_width(ev.label) + 4, 8)
+                loop_width = max(
+                    max(display_width(line) for line in _label_lines(ev.label)) + 4,
+                    8,
+                )
                 needed = col_centers[si] + loop_width + 1
                 max_right = max(max_right, needed)
         elif isinstance(ev, Note):
@@ -262,8 +294,12 @@ def _compute_layout(
     lifeline_start = _TOP_MARGIN + header_height
     row_offsets: list[int] = []
     cumulative = lifeline_start + 1
-    for h in event_heights:
-        row_offsets.append(cumulative)
+    for event_index, h in enumerate(event_heights):
+        event = flat_events[event_index]
+        label_extra = 0
+        if isinstance(event, Message):
+            label_extra = len(_label_lines(effective_labels[event_index])) - 1
+        row_offsets.append(cumulative + label_extra)
         cumulative += h
 
     # Canvas dimensions
@@ -276,6 +312,19 @@ def _compute_layout(
 
 # ── Participant drawing functions ─────────────────────────────────
 
+def _put_centered_lines(
+    canvas: Canvas, start_row: int, center_col: int, text: str,
+    style: str = "label",
+) -> None:
+    for offset, line in enumerate(_label_lines(text)):
+        canvas.put_text(
+            start_row + offset,
+            center_col - display_width(line) // 2,
+            line,
+            style=style,
+        )
+
+
 def _draw_actor(canvas: Canvas, cx: int, y: int, label: str, use_ascii: bool) -> None:
     """Draw a stick-figure actor, bottom-aligned to y + _ACTOR_HEIGHT - 1."""
     style = "node"
@@ -285,21 +334,26 @@ def _draw_actor(canvas: Canvas, cx: int, y: int, label: str, use_ascii: bool) ->
     canvas.put(y + 1, cx + 1, "\\", merge=False, style=style)
     canvas.put(y + 2, cx - 1, "/", merge=False, style=style)
     canvas.put(y + 2, cx + 1, "\\", merge=False, style=style)
-    label_col = cx - display_width(label) // 2
-    canvas.put_text(y + 4, label_col, label, style="label")
+    _put_centered_lines(canvas, y + 4, cx, label)
 
 
-def _draw_database(canvas: Canvas, cx: int, y: int, width: int, label: str, cs: CharSet) -> None:
+def _draw_database(
+    canvas: Canvas, cx: int, y: int, width: int, height: int,
+    label: str, cs: CharSet,
+) -> None:
     """Draw a cylinder (database) participant."""
     bx = cx - width // 2
-    draw_cylinder(canvas, bx, y, width, 5, label, cs, style="node")
+    draw_cylinder(canvas, bx, y, width, height, label, cs, style="node")
 
 
-def _draw_queue(canvas: Canvas, cx: int, y: int, width: int, label: str, cs: CharSet, use_ascii: bool) -> None:
+def _draw_queue(
+    canvas: Canvas, cx: int, y: int, width: int, height: int,
+    label: str, cs: CharSet, use_ascii: bool,
+) -> None:
     """Draw a queue participant — box with doubled right border."""
     bx = cx - width // 2
     style = "node"
-    h = 5
+    h = height
 
     # Top border
     canvas.put(y, bx, cs.top_left, style=style)
@@ -323,9 +377,9 @@ def _draw_queue(canvas: Canvas, cx: int, y: int, width: int, label: str, cs: Cha
             canvas.put(r, bx + width - 1, cs.vertical, style=style)
 
     # Label centered
-    label_col = bx + (width - display_width(label)) // 2
-    label_row = y + h // 2
-    canvas.put_text(label_row, label_col, label, style="label")
+    lines = _label_lines(label)
+    label_row = y + max(1, (h - len(lines)) // 2)
+    _put_centered_lines(canvas, label_row, cx, label)
 
 
 def _draw_boundary(canvas: Canvas, cx: int, y: int, label: str, cs: CharSet, use_ascii: bool) -> None:
@@ -354,8 +408,7 @@ def _draw_boundary(canvas: Canvas, cx: int, y: int, label: str, cs: CharSet, use
     canvas.put(y + 2, box_right, cs.bottom_right, style=style)
 
     # Label below
-    label_col = cx - display_width(label) // 2
-    canvas.put_text(y + 4, label_col, label, style="label")
+    _put_centered_lines(canvas, y + 4, cx, label)
 
 
 def _draw_control(canvas: Canvas, cx: int, y: int, label: str, cs: CharSet, use_ascii: bool) -> None:
@@ -376,8 +429,7 @@ def _draw_control(canvas: Canvas, cx: int, y: int, label: str, cs: CharSet, use_
     canvas.put(y + 2, cx + 1, cs.round_bottom_right if not use_ascii else cs.bottom_right, style=style)
 
     # Label below
-    label_col = cx - display_width(label) // 2
-    canvas.put_text(y + 4, label_col, label, style="label")
+    _put_centered_lines(canvas, y + 4, cx, label)
 
 
 def _draw_entity(canvas: Canvas, cx: int, y: int, label: str, cs: CharSet, use_ascii: bool) -> None:
@@ -397,15 +449,17 @@ def _draw_entity(canvas: Canvas, cx: int, y: int, label: str, cs: CharSet, use_a
     canvas.put(y + 2, cx + 1, cs.horizontal, merge=False, style=style)
 
     # Label below
-    label_col = cx - display_width(label) // 2
-    canvas.put_text(y + 4, label_col, label, style="label")
+    _put_centered_lines(canvas, y + 4, cx, label)
 
 
-def _draw_collections(canvas: Canvas, cx: int, y: int, width: int, label: str, cs: CharSet, use_ascii: bool) -> None:
+def _draw_collections(
+    canvas: Canvas, cx: int, y: int, width: int, height: int,
+    label: str, cs: CharSet, use_ascii: bool,
+) -> None:
     """Draw a collections symbol: two overlapping rectangles."""
     style = "node"
     bx = cx - width // 2
-    h = 5
+    h = height
 
     # Back rectangle (offset +1 right, 0 up) — just top and right edges visible
     # Top edge of back rectangle
@@ -442,9 +496,9 @@ def _draw_collections(canvas: Canvas, cx: int, y: int, width: int, label: str, c
     canvas.put(y + h - 1, bx + width - 1, cs.bottom_right, style=style)
 
     # Label centered in front rectangle
-    label_col = bx + (width - display_width(label)) // 2
-    label_row = y + 1 + (h - 1) // 2
-    canvas.put_text(label_row, label_col, label, style="label")
+    lines = _label_lines(label)
+    label_row = y + 1 + max(0, (h - 2 - len(lines)) // 2)
+    _put_centered_lines(canvas, label_row, cx, label)
 
 
 def _draw_participant_header(
@@ -454,33 +508,37 @@ def _draw_participant_header(
     """Dispatch to the correct participant drawing function."""
     kind = participant.kind
     label = participant.label
+    participant_height = _participant_height(participant)
 
     if kind == "actor":
-        actor_y = _TOP_MARGIN + (header_height - _ACTOR_HEIGHT)
+        actor_y = _TOP_MARGIN + (header_height - participant_height)
         _draw_actor(canvas, cx, actor_y, label, use_ascii)
     elif kind == "database":
-        db_y = _TOP_MARGIN + (header_height - 5)
-        _draw_database(canvas, cx, db_y, bw, label, cs)
+        db_y = _TOP_MARGIN + (header_height - participant_height)
+        _draw_database(canvas, cx, db_y, bw, participant_height, label, cs)
     elif kind == "queue":
-        q_y = _TOP_MARGIN + (header_height - 5)
-        _draw_queue(canvas, cx, q_y, bw, label, cs, use_ascii)
+        q_y = _TOP_MARGIN + (header_height - participant_height)
+        _draw_queue(canvas, cx, q_y, bw, participant_height, label, cs, use_ascii)
     elif kind == "boundary":
-        b_y = _TOP_MARGIN + (header_height - 5)
+        b_y = _TOP_MARGIN + (header_height - participant_height)
         _draw_boundary(canvas, cx, b_y, label, cs, use_ascii)
     elif kind == "control":
-        c_y = _TOP_MARGIN + (header_height - 5)
+        c_y = _TOP_MARGIN + (header_height - participant_height)
         _draw_control(canvas, cx, c_y, label, cs, use_ascii)
     elif kind == "entity":
-        e_y = _TOP_MARGIN + (header_height - 5)
+        e_y = _TOP_MARGIN + (header_height - participant_height)
         _draw_entity(canvas, cx, e_y, label, cs, use_ascii)
     elif kind == "collections":
-        col_y = _TOP_MARGIN + (header_height - 5)
-        _draw_collections(canvas, cx, col_y, bw, label, cs, use_ascii)
+        col_y = _TOP_MARGIN + (header_height - participant_height)
+        _draw_collections(
+            canvas, cx, col_y, bw, participant_height, label, cs, use_ascii,
+        )
     else:
         # Default: participant box
-        box_y = _TOP_MARGIN + (header_height - _BOX_HEIGHT)
+        box_height = len(_label_lines(label)) + 2
+        box_y = _TOP_MARGIN + (header_height - box_height)
         bx = cx - bw // 2
-        draw_rectangle(canvas, bx, box_y, bw, _BOX_HEIGHT, label, cs, style="node")
+        draw_rectangle(canvas, bx, box_y, bw, box_height, label, cs, style="node")
 
 
 def _compute_activation_ranges(flat_events: list, row_offsets: list[int]) -> dict[str, list[tuple[int, int]]]:
@@ -522,9 +580,23 @@ def _is_activated(ranges: dict[str, list[tuple[int, int]]], pid: str, row: int) 
     return False
 
 
-def render_sequence(diagram: SequenceDiagram, *, use_ascii: bool = False, padding_x: int = 4, gap: int = 16) -> Canvas:
+def render_sequence(
+    diagram: SequenceDiagram,
+    *,
+    use_ascii: bool = False,
+    padding_x: int = 4,
+    gap: int = 16,
+    max_label_width: int | None = None,
+) -> Canvas:
     """Render a SequenceDiagram to a Canvas."""
     cs = ASCII if use_ascii else UNICODE
+
+    if max_label_width is not None:
+        for participant in diagram.participants:
+            participant.label = "\n".join(
+                wrap_display_text(participant.label, max_label_width)
+            )
+        _wrap_sequence_events(diagram.events, max_label_width)
 
     # Flatten events for linear layout
     flat_events = _flatten_events(diagram.events)
@@ -844,9 +916,12 @@ def _draw_message(
 
     # Label above the line
     if display_label:
-        label_row = row - 1
-        label_col = left + 2
-        canvas.put_text(label_row, label_col, display_label, style="edge_label")
+        lines = _label_lines(display_label)
+        label_row = row - len(lines)
+        for offset, line in enumerate(lines):
+            canvas.put_text(
+                label_row + offset, left + 2, line, style="edge_label",
+            )
 
 
 def _draw_self_message(
@@ -859,7 +934,10 @@ def _draw_self_message(
     use_ascii: bool,
 ) -> None:
     """Draw a self-referencing message (loop to the right)."""
-    loop_width = max(display_width(display_label) + 4, 8)
+    loop_width = max(
+        max(display_width(line) for line in _label_lines(display_label)) + 4,
+        8,
+    )
 
     if msg.line_type == "dotted":
         h_char = "." if use_ascii else "┄"
@@ -901,4 +979,9 @@ def _draw_self_message(
 
     # Label above the top line
     if display_label:
-        canvas.put_text(row - 1, col + 2, display_label, style="edge_label")
+        lines = _label_lines(display_label)
+        label_row = row - len(lines)
+        for offset, line in enumerate(lines):
+            canvas.put_text(
+                label_row + offset, col + 2, line, style="edge_label",
+            )

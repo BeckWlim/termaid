@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import argparse
+import json
 import os
 import shutil
 import sys
@@ -25,6 +26,11 @@ def _max_line_width(text: str) -> int:
 
 def _plain(result) -> str:
     """Plain-text view of a render result (str or rich.text.Text)."""
+    if isinstance(result, dict) and result.get("version") == 1:
+        return "\n".join(
+            "".join(chunk["text"] for chunk in line)
+            for line in result.get("lines", [])
+        )
     return getattr(result, "plain", result)
 
 
@@ -49,20 +55,12 @@ def _auto_fit(
     if _max_line_width(_plain(result)) <= target_width:
         return result
 
-    # Progressively compact: reduce gap, then padding
-    compact_steps = [
-        {"gap": min(args.gap, 2)},
-        {"gap": 1},
-        {"gap": 1, "padding_x": 2},
-        {"gap": 1, "padding_x": 0},
-    ]
-
-    for overrides in compact_steps:
+    def render_candidate(overrides: dict[str, int | bool]):
         gap = overrides.get("gap", args.gap)
         px = overrides.get("padding_x", args.padding_x)
-        if gap >= args.gap and px >= args.padding_x:
-            continue
-        candidate = render_fn(
+        label_width = overrides.get("max_label_width")
+        force_vertical = overrides.get("force_vertical", False)
+        return render_fn(
             source,
             use_ascii=args.ascii,
             padding_x=px,
@@ -70,14 +68,66 @@ def _auto_fit(
             rounded_edges=not args.sharp_edges,
             gap=gap,
             inline_edge_labels=args.inline_edge_labels,
+            max_label_width=label_width,
+            force_vertical=force_vertical,
         )
-        if _max_line_width(_plain(candidate)) <= target_width:
-            return candidate
-        result = candidate
 
-    if _max_line_width(_plain(result)) > target_width:
+    if args.fit_mode == "compact":
+        # Including the initial render, compact mode attempts at most three
+        # layouts and preserves labels exactly.
+        for overrides in (
+            {"gap": min(args.gap, 2), "padding_x": args.padding_x},
+            {"gap": 1, "padding_x": 0},
+        ):
+            candidate = render_candidate(overrides)
+            if _max_line_width(_plain(candidate)) <= target_width:
+                return candidate
+            result = candidate
+    else:
+        # Search label widths instead of jumping through a few fixed values.
+        # Six iterations keep the complete fit operation at no more than
+        # eight renders (initial + search + optional vertical fallback).
+        lower = 1
+        upper = min(target_width, 64)
+        best = None
+        best_width = -1
+        for _ in range(6):
+            if lower > upper:
+                break
+            label_width = (lower + upper) // 2
+            candidate = render_candidate({
+                "gap": 1,
+                "padding_x": 0,
+                "max_label_width": label_width,
+            })
+            candidate_width = _max_line_width(_plain(candidate))
+            result = candidate
+            if candidate_width <= target_width:
+                if candidate_width > best_width:
+                    best = candidate
+                    best_width = candidate_width
+                lower = label_width + 1
+            else:
+                upper = label_width - 1
+
+        if best is not None:
+            return best
+
+        if args.fit_mode == "reflow":
+            result = render_candidate({
+                "gap": 1,
+                "padding_x": 0,
+                "max_label_width": 5,
+                "force_vertical": True,
+            })
+            if _max_line_width(_plain(result)) <= target_width:
+                return result
+
+    result_width = _max_line_width(_plain(result))
+    if result_width > target_width:
+        level = "Error" if args.strict_width else "Warning"
         print(
-            f"Warning: diagram is {_max_line_width(_plain(result))} cols wide "
+            f"{level}: diagram is {result_width} cols wide "
             f"but target is {target_width}. "
             f"Try: less -S, or use 'graph TD' for vertical layout.",
             file=sys.stderr,
@@ -154,7 +204,27 @@ def main(argv: list[str] | None = None) -> int:
         "--width",
         type=int,
         default=None,
-        help="Max output width. Re-renders with smaller gap/padding if exceeded.",
+        help="Target output width in terminal display cells.",
+    )
+    parser.add_argument(
+        "--strict-width",
+        action="store_true",
+        help="Exit unsuccessfully instead of emitting output wider than --width.",
+    )
+    parser.add_argument(
+        "--fit-mode",
+        choices=["compact", "wrap", "reflow"],
+        default="wrap",
+        help=(
+            "Width fitting strategy: spacing only, semantic label wrapping, "
+            "or wrapping plus vertical flowchart reflow (default: wrap)."
+        ),
+    )
+    parser.add_argument(
+        "--max-height",
+        type=int,
+        default=None,
+        help="Exit unsuccessfully when output exceeds this many rows.",
     )
     parser.add_argument(
         "--sharp-edges",
@@ -190,6 +260,13 @@ def main(argv: list[str] | None = None) -> int:
         help="Write output to file instead of stdout",
     )
     parser.add_argument(
+        "--format",
+        dest="output_format",
+        choices=["text", "styled-json"],
+        default="text",
+        help="Output plain text or versioned semantic style chunks.",
+    )
+    parser.add_argument(
         "--show-ids",
         action="store_true",
         help="Show node IDs alongside labels (e.g. 'A: Start') for debugging.",
@@ -222,6 +299,13 @@ def main(argv: list[str] | None = None) -> int:
 
     args = parser.parse_args(argv)
 
+    if args.strict_width and args.width is None:
+        print("Error: --strict-width requires --width.", file=sys.stderr)
+        return 2
+    if args.max_height is not None and args.max_height < 1:
+        print("Error: --max-height must be positive.", file=sys.stderr)
+        return 2
+
     if args.themes:
         return _list_themes()
 
@@ -251,8 +335,64 @@ def main(argv: list[str] | None = None) -> int:
     if args.tui:
         return _run_tui(source, args)
 
+    # --show-ids: patch node labels before rendering
+    render_source = source
+    if args.show_ids:
+        render_source = _apply_show_ids(source)
+
     # Render
     from termaid import render, render_rich
+    from termaid.output.styled import render_styled
+
+    if args.output_format == "styled-json":
+        try:
+            styled_result = render_styled(
+                render_source,
+                use_ascii=args.ascii,
+                padding_x=args.padding_x,
+                padding_y=args.padding_y,
+                rounded_edges=not args.sharp_edges,
+                gap=args.gap,
+                inline_edge_labels=args.inline_edge_labels,
+            )
+            styled_result = _auto_fit(
+                styled_result,
+                render_source,
+                args,
+                render_fn=render_styled,
+                target_width=args.width,
+            )
+            plain_result = _plain(styled_result)
+            if (
+                args.strict_width
+                and args.width is not None
+                and _max_line_width(plain_result) > args.width
+            ):
+                return 2
+            if (
+                args.max_height is not None
+                and len(plain_result.splitlines()) > args.max_height
+            ):
+                print(
+                    f"Error: diagram exceeds {args.max_height} output rows.",
+                    file=sys.stderr,
+                )
+                return 2
+            serialized = json.dumps(
+                styled_result, ensure_ascii=False, separators=(",", ":")
+            )
+            if args.output:
+                with open(args.output, "w", encoding="utf-8") as f:
+                    f.write(serialized + "\n")
+            else:
+                print(serialized)
+        except OSError as e:
+            print(f"Error writing to {args.output}: {e}", file=sys.stderr)
+            return 1
+        except Exception as e:
+            print(f"Error rendering diagram: {e}", file=sys.stderr)
+            return 1
+        return 0
 
     use_color = _use_color(args)
     if use_color:
@@ -262,11 +402,6 @@ def main(argv: list[str] | None = None) -> int:
         except ImportError:
             print("Error: 'rich' package required for --theme. Install with: pip install termaid[rich]", file=sys.stderr)
             return 1
-
-    # --show-ids: patch node labels before rendering
-    render_source = source
-    if args.show_ids:
-        render_source = _apply_show_ids(source)
 
     try:
         if use_color:
@@ -287,6 +422,21 @@ def main(argv: list[str] | None = None) -> int:
                 render_fn=render_color,
                 target_width=args.width,
             )
+            if (
+                args.strict_width
+                and args.width is not None
+                and _max_line_width(_plain(rich_result)) > args.width
+            ):
+                return 2
+            if (
+                args.max_height is not None
+                and len(_plain(rich_result).splitlines()) > args.max_height
+            ):
+                print(
+                    f"Error: diagram exceeds {args.max_height} output rows.",
+                    file=sys.stderr,
+                )
+                return 2
             if args.output:
                 try:
                     with open(args.output, "w", encoding="utf-8") as f:
@@ -316,6 +466,21 @@ def main(argv: list[str] | None = None) -> int:
                 render_fn=render,
                 target_width=args.width,
             )
+            if (
+                args.strict_width
+                and args.width is not None
+                and _max_line_width(result) > args.width
+            ):
+                return 2
+            if (
+                args.max_height is not None
+                and len(result.splitlines()) > args.max_height
+            ):
+                print(
+                    f"Error: diagram exceeds {args.max_height} output rows.",
+                    file=sys.stderr,
+                )
+                return 2
             if args.output:
                 try:
                     with open(args.output, "w", encoding="utf-8") as f:

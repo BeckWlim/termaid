@@ -43,6 +43,7 @@ termaid diagram.mmd
 echo "graph LR; A-->B-->C" | termaid
 termaid diagram.mmd --theme neon
 termaid diagram.mmd --ascii
+termaid diagram.mmd --format styled-json
 ```
 
 ### Python
@@ -505,6 +506,7 @@ packet
 | `--no-auto-fit` | Disable automatic compaction when diagram exceeds terminal width |
 | `--sharp-edges` | Sharp corners on edge turns instead of rounded |
 | `-o FILE` | Write output to file instead of stdout |
+| `--format styled-json` | Emit versioned semantic text chunks for editor and UI integrations |
 | `--show-ids` | Show node IDs alongside labels for debugging (e.g. `myId: My Label`) |
 | `--json TYPE` | Pipe JSON/tabular data and render as `treemap`, `pie`, `mindmap`, `flowchart`, or `xychart` |
 | `--tui` | Interactive TUI viewer (requires `pip install termaid[tui]`) |

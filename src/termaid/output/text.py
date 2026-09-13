@@ -13,6 +13,7 @@ def render_text(
     rounded_edges: bool = True,
     gap: int = 4,
     inline_edge_labels: bool = False,
+    max_label_width: int | None = None,
 ) -> str:
     """Render a graph to plain text."""
     return render_graph(
@@ -23,4 +24,5 @@ def render_text(
         rounded_edges=rounded_edges,
         gap=gap,
         inline_edge_labels=inline_edge_labels,
+        max_label_width=max_label_width,
     )
