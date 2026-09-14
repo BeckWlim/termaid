@@ -1,5 +1,10 @@
 # Changelog
 
+## Unreleased
+
+### Fixes
+- Sequence: `par`, `alt`, and other scope frames follow enclosed messages, notes, and branches; nested frames expand around child scopes instead of crossing lifelines. Long scope labels wrap during width fitting and remain inside their borders.
+
 ## 0.8.0 (2026-07-29)
 
 ### New
