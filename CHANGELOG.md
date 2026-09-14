@@ -1,5 +1,10 @@
 # Changelog
 
+## Unreleased
+
+### Fixes
+- Sequence scope frames now enclose their messages, notes, branches, and nested frames. Deep nesting no longer crosses message arrows, and long scope titles remain inside their borders.
+
 ## 0.8.0 (2026-07-29)
 
 ### New
