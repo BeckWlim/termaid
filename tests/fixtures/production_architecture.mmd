@@ -1,0 +1,15 @@
+flowchart TD
+    App[Application] --> API[Client / RealClient]
+    API --> MC[MasterClient]
+    MC --> RPC[WrappedMasterService]
+    RPC --> MS[MasterService]
+
+    MS --> Meta[Sharded object metadata]
+    MS --> Alloc[Memory / NoF / DFS allocators]
+    MS --> Quota[Tenant quota accounts]
+    MS --> Groups[Group membership and shared leases]
+    MS -->|Replica descriptors| API
+
+    API -->|Object bytes| Memory[Remote memory]
+    API -->|Object bytes| NoF[NoF SSD]
+    API -->|Object bytes| Disk[Storage backend / DFS]

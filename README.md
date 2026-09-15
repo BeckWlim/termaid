@@ -13,6 +13,7 @@
 - **18 diagram types:** flowcharts, sequence, class, ER, state, block, git, gantt, architecture, pie, treemap, mindmap, timeline, kanban, quadrant, XY chart, user journey, and packet
 - **Zero dependencies:** pure Python, nothing to install beyond the package itself
 - **Terminal-aware:** auto-fits diagrams to terminal width with progressive compaction
+- **Best-effort crossing avoidance:** shared fan-out branches and outer return lanes; `╳` (`x` in ASCII) distinguishes unconnected crossings from junctions
 - **Rich and Textual integration:** colored output and TUI widgets with optional extras
 - **6 color themes:** default, terra, neon, mono, amber, phosphor
 - **ASCII fallback:** works on any terminal, even the most basic ones
@@ -492,6 +493,51 @@ packet
 
 ## CLI options
 
+Sequence participant boxes share the header row height; width matching is capped to avoid
+stretching every box around one long name. During width fitting, scope headings wrap to
+their frame's content width independently of participant labels. Styled output marks scope
+borders as `subgraph` and scope hints as `subgraph_label` so editors can keep ranges muted.
+Disjoint flowchart edge labels can align on one row while retaining separation.
+During width fitting, node boxes and connection layout take priority over transition sentences.
+Return corridors have a bounded structural width; long labels do not set their width. The fitter
+prefers the largest node-label budget that fits. Labels use the existing `--width` budget and
+wrap whole words into clear rectangles beside their paths, preferring balanced lines.
+With `--width`, labels use the available width before wrapping, extending beyond the node
+layout when needed. Without a width budget, they prefer existing diagram space. Return labels
+prefer the outer margin. They never overwrite connectors or nodes. A label that still cannot fit uses a
+numbered reference such as `[1]`, with its full text below the diagram. References follow source
+edge order. If a reference needs a nearby position or cannot fit safely, its entry also names
+the source and target. The reference list wraps within the same width budget.
+`--arrow-position middle` places directional flowchart arrowheads on clear straight segments,
+preferring unshared portions near the middle. This helps distinguish converging edges.
+Placement is best effort: short routes can retain endpoint heads; circle and cross endpoints
+always stay at their endpoints. The default remains `--arrow-position end`.
+These options preserve terminal text size and apply to the graph renderer, not sequence arrows.
+Sequence arrows leave a blank cell beside endpoint lifelines; self-loops reserve room before
+the next participant. Unrelated arrow crossings and unavoidable crossings through other lifelines use a small `x`
+in both Unicode and ASCII output.
+Scope headings cover only their own text area, preserving the other vertical lines on the row.
+After layout, message labels use the measured space between arrow endpoints rather than the
+participant-box wrapping limit. Labels stay within those endpoints; arrows do not add further
+line breaks. Punctuation boundaries help keep short endings with their preceding phrase.
+
+Width-fitted labels prefer whole words, then punctuation, identifier separators, and
+camel-case boundaries. For example, `metadata_shard[s].mutex` wraps before `.mutex`
+when the complete name cannot fit. An unbreakable segment wider than the budget still
+splits by display cells; explicit newlines and complete CJK characters are preserved.
+The shared `termaid.utils.wrap_display_text(text, max_width)` utility supplies this policy
+for flowchart nodes and sequence participants, messages, notes, and scope headings.
+
+```python
+from termaid.utils import wrap_display_text
+
+wrap_display_text("metadata_shard[s].mutex", 20)
+# ["metadata_shard[s]", ".mutex"]
+wrap_display_text("Read complete words here", 14)
+# ["Read complete", "words here"]
+```
+
+
 | Flag | Description |
 |------|-------------|
 | `--ascii` | ASCII-only output (no Unicode box-drawing) |
@@ -501,8 +547,12 @@ packet
 | `--padding-x N` | Horizontal padding inside boxes (default: 4) |
 | `--padding-y N` | Vertical padding inside boxes (default: 2) |
 | `--gap N` | Space between nodes (default: 4). Use `1` or `2` for compact diagrams |
+| `--arrow-position {end,middle}` | Flowchart arrowhead placement; default `end`, best-effort `middle` |
 | `--inline-edge-labels` | Attach flowchart labels directly to their edges |
-| `--width N` | Max output width. Re-renders with smaller gap/padding if exceeded |
+| `--width N` | Target output width in terminal display cells; fit oversized diagrams with smaller spacing and wrapped labels |
+| `--strict-width` | Fail without oversized output if the requested width cannot be met |
+| `--fit-mode compact\|wrap\|reflow` | Fit spacing only, wrap labels, or also allow vertical flowchart reflow |
+| `--uniform-nodes` | Give flowchart nodes common width and height before fitting and routing; junctions remain minimal |
 | `--no-auto-fit` | Disable automatic compaction when diagram exceeds terminal width |
 | `--sharp-edges` | Sharp corners on edge turns instead of rounded |
 | `-o FILE` | Write output to file instead of stdout |
@@ -516,6 +566,10 @@ packet
 ### `render(source, ...) -> str`
 
 Render a Mermaid diagram as a plain text string. Auto-detects diagram type.
+`arrow_position="middle"` enables middle arrowheads for graph diagrams; `"end"` is the default.
+The same keyword is supported by `render_rich` and `termaid.output.styled.render_styled`.
+These adapters also accept `max_width` to bound edge-label placement, as the CLI does with
+`--width`; this alone does not fit oversized node layouts.
 
 ### `render_rich(source, ..., theme="default") -> rich.text.Text`
 

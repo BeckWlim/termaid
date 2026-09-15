@@ -1,0 +1,12 @@
+stateDiagram-v2
+    [*] --> Starting
+    Starting --> Standby: start standby controller
+    Standby --> Candidate: inspect current view
+    Candidate --> Standby: another leader exists
+    Candidate --> LeaderWarmup: acquire leadership and export standby
+    LeaderWarmup --> Recovering: construct Master and restore promotion context
+    Recovering --> LeaderWarmup: restore succeeds
+    LeaderWarmup --> Serving: renew preflight and start RPC server
+    Serving --> Standby: leadership monitor reports loss
+    Recovering --> Standby: restore fails and leadership is released
+    LeaderWarmup --> Standby: renewal fails or leadership expires

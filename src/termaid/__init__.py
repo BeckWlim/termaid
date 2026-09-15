@@ -45,6 +45,9 @@ def render(
     gap: int = 4,
     inline_edge_labels: bool = False,
     max_label_width: int | None = None,
+    uniform_nodes: bool = False,
+    arrow_position: str = "end",
+    max_width: int | None = None,
     force_vertical: bool = False,
 ) -> str:
     """Render mermaid syntax as Unicode (or ASCII) art.
@@ -119,7 +122,7 @@ def render(
         from .parser.architecture import parse_architecture
         from .output.text import render_text
         arch_graph = parse_architecture(text)
-        return render_text(arch_graph, use_ascii=use_ascii, padding_x=padding_x, padding_y=padding_y, rounded_edges=rounded_edges, gap=gap)
+        return render_text(arch_graph, use_ascii=use_ascii, padding_x=padding_x, padding_y=padding_y, rounded_edges=rounded_edges, gap=gap, arrow_position=arrow_position, max_width=max_width)
 
     if text.startswith("pie"):
         from .parser.piechart import parse_pie_chart
@@ -192,6 +195,9 @@ def render(
         gap=gap,
         inline_edge_labels=inline_edge_labels,
         max_label_width=max_label_width,
+        uniform_nodes=uniform_nodes,
+        max_width=max_width,
+        arrow_position=arrow_position,
     )
 
 
@@ -206,6 +212,9 @@ def render_rich(
     gap: int = 4,
     inline_edge_labels: bool = False,
     max_label_width: int | None = None,
+    uniform_nodes: bool = False,
+    arrow_position: str = "end",
+    max_width: int | None = None,
     force_vertical: bool = False,
 ):
     """Render mermaid syntax as a Rich Text object with colors.
@@ -288,7 +297,7 @@ def render_rich(
         from .parser.architecture import parse_architecture
         from .output.rich import render_rich as _render_rich
         arch_graph = parse_architecture(text)
-        return _render_rich(arch_graph, use_ascii=use_ascii, padding_x=padding_x, padding_y=padding_y, rounded_edges=rounded_edges, theme=theme)
+        return _render_rich(arch_graph, use_ascii=use_ascii, padding_x=padding_x, padding_y=padding_y, rounded_edges=rounded_edges, theme=theme, arrow_position=arrow_position, max_width=max_width)
 
     if text.startswith("pie"):
         from .parser.piechart import parse_pie_chart
@@ -377,6 +386,9 @@ def render_rich(
         gap=gap,
         inline_edge_labels=inline_edge_labels,
         max_label_width=max_label_width,
+        uniform_nodes=uniform_nodes,
+        max_width=max_width,
+        arrow_position=arrow_position,
     )
 
 

@@ -8,7 +8,7 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from enum import Enum, auto
 
-from ..graph.model import Direction, Edge, Graph
+from ..graph.model import Direction, Edge, EdgeStyle, Graph
 from ..layout.grid import GridLayout, NodePlacement, SubgraphBounds
 from .pathfinder import find_path, simplify_path
 
@@ -40,7 +40,7 @@ def route_edges(graph: Graph, layout: GridLayout) -> list[RoutedEdge]:
     """Route all edges in the graph."""
     direction = graph.direction.normalized()
     routed: list[RoutedEdge] = []
-    soft_obstacles: set[tuple[int, int]] = set()
+    sibling_routes = _route_sibling_branches(graph, layout)
 
     # Build subgraph bounds lookup
     sg_bounds: dict[str, SubgraphBounds] = {}
@@ -51,7 +51,18 @@ def route_edges(graph: Graph, layout: GridLayout) -> list[RoutedEdge]:
     # in a subgraph should avoid routing through its box.
     sg_regions = _compute_sg_regions(layout, sg_bounds)
 
-    for i, edge in enumerate(graph.edges):
+    def backward_edge(indexed_edge: tuple[int, Edge]) -> bool:
+        candidate = indexed_edge[1]
+        source = layout.placements.get(candidate.source)
+        target = layout.placements.get(candidate.target)
+        if source is None or target is None:
+            return False
+        return (target.grid.col < source.grid.col if direction.is_horizontal
+                else target.grid.row < source.grid.row)
+
+    # Route forward branches first, even when a return appears earlier in
+    # the source. A return then sees the branches it would otherwise cross.
+    for i, edge in sorted(enumerate(graph.edges), key=backward_edge):
         src, tgt = _resolve_endpoints(edge, layout, sg_bounds)
 
         if src is None or tgt is None:
@@ -64,9 +75,11 @@ def route_edges(graph: Graph, layout: GridLayout) -> list[RoutedEdge]:
             continue
 
         forbidden = _foreign_sg_cells(edge, graph, sg_regions)
-        re = _route_edge(edge, src, tgt, layout, direction, soft_obstacles | forbidden)
+        soft_obstacles = set().union(*(previous.occupied_cells for previous in routed))
+        re = sibling_routes.get(i)
+        if re is None:
+            re = _route_edge(edge, src, tgt, layout, direction, soft_obstacles | forbidden)
         re.index = i
-        soft_obstacles.update(re.occupied_cells)
 
         # Snap subgraph-endpoint edges onto the subgraph border so they
         # attach to the box, not to the inner node used for routing.
@@ -77,6 +90,8 @@ def route_edges(graph: Graph, layout: GridLayout) -> list[RoutedEdge]:
 
         routed.append(re)
 
+    routed.sort(key=lambda route: route.index)
+
     # Post-process: spread edges that share the same target endpoint so
     # arrows don't overlap on the same cell.  Start points are NOT spread
     # because edges diverge naturally from a shared T-junction, and
@@ -85,6 +100,77 @@ def route_edges(graph: Graph, layout: GridLayout) -> list[RoutedEdge]:
     _spread_shared_endpoints(routed, layout, sg_bounds)
 
     return routed
+
+
+def _route_sibling_branches(graph: Graph, layout: GridLayout) -> dict[int, RoutedEdge]:
+    """Give plain forward siblings one clear bus before routing other edges.
+
+    Use only open routing lanes between a source and a common target layer.
+    Labels stay on each destination branch. Styled, subgraph, and backward
+    routes retain independent A* paths.
+    """
+    if graph.subgraphs:
+        return {}
+    horizontal = graph.direction.normalized().is_horizontal
+    groups: dict[tuple[str, int], list[int]] = {}
+    for edge_index, edge in enumerate(graph.edges):
+        if (edge.has_arrow_start or edge.source_is_subgraph
+                or edge.target_is_subgraph or edge.style != EdgeStyle.SOLID
+                or edge_index in graph.link_styles or -1 in graph.link_styles):
+            continue
+        source = layout.placements.get(edge.source)
+        target = layout.placements.get(edge.target)
+        if source is None or target is None:
+            continue
+        source_layer = source.grid.col if horizontal else source.grid.row
+        target_layer = target.grid.col if horizontal else target.grid.row
+        if target_layer > source_layer:
+            groups.setdefault((edge.source, target_layer), []).append(edge_index)
+
+    routes: dict[int, RoutedEdge] = {}
+    for (source_id, target_layer), edge_indices in groups.items():
+        if len({graph.edges[index].target for index in edge_indices}) < 2:
+            continue
+        target_ids = {graph.edges[index].target for index in edge_indices}
+        if any(edge.target in target_ids and edge.source != source_id for edge in graph.edges):
+            continue  # Converging arrows need the independent endpoint-spreading path.
+        source = layout.placements[source_id]
+        source_layer = source.grid.col if horizontal else source.grid.row
+        start_direction = AttachDir.RIGHT if horizontal else AttachDir.BOTTOM
+        end_direction = AttachDir.LEFT if horizontal else AttachDir.TOP
+        for lane in range(source_layer + 2, target_layer - 1):
+            candidates: dict[int, RoutedEdge] = {}
+            for edge_index in edge_indices:
+                edge = graph.edges[edge_index]
+                target = layout.placements[edge.target]
+                start = _get_attach_point(source, start_direction)
+                end = _get_attach_point(target, end_direction)
+                corners = ([start, (lane, start[1]), (lane, end[1]), end]
+                           if horizontal else
+                           [start, (start[0], lane), (end[0], lane), end])
+                cells: list[tuple[int, int]] = [start]
+                for first, last in zip(corners, corners[1:]):
+                    delta_col = (last[0] > first[0]) - (last[0] < first[0])
+                    delta_row = (last[1] > first[1]) - (last[1] < first[1])
+                    distance = abs(last[0] - first[0]) + abs(last[1] - first[1])
+                    cells.extend((first[0] + step * delta_col, first[1] + step * delta_row)
+                                 for step in range(1, distance + 1))
+                if any(not layout.is_free(col, row) for col, row in cells[1:-1]):
+                    break
+                grid_path = simplify_path(cells)
+                draw_path = [layout.grid_to_draw_center(col, row) for col, row in grid_path]
+                # Leave an arrow cell between the bus corner and the target.
+                if len(draw_path) > 2 and sum(abs(a - b) for a, b in zip(draw_path[-2], draw_path[-1])) < 2:
+                    break
+                candidates[edge_index] = RoutedEdge(
+                    edge=edge, grid_path=grid_path, draw_path=draw_path,
+                    start_dir=start_direction, end_dir=end_direction,
+                    index=edge_index, occupied_cells=set(cells), label=edge.label,
+                )
+            if len(candidates) == len(edge_indices):
+                routes.update(candidates)
+                break
+    return routes
 
 
 def _spread_shared_endpoints(
@@ -438,9 +524,9 @@ def _determine_directions(
         if tc > sc:
             preferred = (AttachDir.RIGHT, AttachDir.LEFT)
         elif tc < sc:
-            # Back-edge: exit BOTTOM to separate from other back-edges entering TOP
+            # A return can use the lower corridor or the reserved upper lane.
             preferred = (AttachDir.BOTTOM, AttachDir.BOTTOM)
-            return preferred, (AttachDir.BOTTOM, AttachDir.TOP)
+            return preferred, (AttachDir.TOP, AttachDir.TOP)
         else:
             preferred = (AttachDir.BOTTOM, AttachDir.TOP) if tr > sr else (AttachDir.TOP, AttachDir.BOTTOM)
 
@@ -456,9 +542,9 @@ def _determine_directions(
         if tr > sr:
             preferred = (AttachDir.BOTTOM, AttachDir.TOP)
         elif tr < sr:
-            # Back-edge: exit RIGHT to separate from other back-edges entering LEFT
+            # A return can use either side, including a reserved left lane.
             preferred = (AttachDir.RIGHT, AttachDir.RIGHT)
-            return preferred, (AttachDir.RIGHT, AttachDir.LEFT)
+            return preferred, (AttachDir.LEFT, AttachDir.LEFT)
         else:
             preferred = (AttachDir.RIGHT, AttachDir.LEFT) if tc > sc else (AttachDir.LEFT, AttachDir.RIGHT)
 
@@ -514,7 +600,18 @@ def _route_edge(
     # tight corners next to node borders.
     _PREFER_BIAS = 3  # allow preferred path to be up to 3 cells longer
     if path_pref and path_alt:
-        if len(path_pref) <= len(path_alt) + _PREFER_BIAS:
+        backward = (tgt.grid.col < src.grid.col if direction.is_horizontal
+                    else tgt.grid.row < src.grid.row)
+        preferred_crossings = len(set(path_pref[1:-1]) & soft_obstacles) if backward else 0
+        alternative_crossings = len(set(path_alt[1:-1]) & soft_obstacles) if backward else 0
+        perpendicular_axis = 1 if direction.is_horizontal else 0
+        canvas_extent = layout.canvas_height if direction.is_horizontal else layout.canvas_width
+        preferred_overflow = max(0, max(layout.grid_to_draw_center(*point)[perpendicular_axis]
+                                        for point in path_pref) - canvas_extent + 1) if backward else 0
+        alternative_overflow = max(0, max(layout.grid_to_draw_center(*point)[perpendicular_axis]
+                                          for point in path_alt) - canvas_extent + 1) if backward else 0
+        if (preferred_crossings, preferred_overflow, len(path_pref)) <= (
+                alternative_crossings, alternative_overflow, len(path_alt) + _PREFER_BIAS):
             path, start_dir, end_dir = path_pref, preferred[0], preferred[1]
         else:
             path, start_dir, end_dir = path_alt, alt[0], alt[1]

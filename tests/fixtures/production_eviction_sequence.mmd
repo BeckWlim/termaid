@@ -1,0 +1,75 @@
+sequenceDiagram
+    participant S as SGLang
+    participant C as RealClient / Client
+    participant M as MasterService
+    participant L as metadata_shard[s].mutex
+    participant E as BatchEvict
+
+    Note over S: TTFT 开始：请求计时起点
+    S->>S: 本地匹配与调度
+    opt 独立的存在性查询 RPC
+        Note over C,M: T_exist_rpc 开始
+        C->>M: BatchExistKey
+        M->>M: 按 shard 查询对象存在性
+        M-->>C: 返回整批存在性结果，T_exist_rpc 结束
+    end
+    S->>C: batch_get(keys, host destinations)
+    Note over C: T_storage 开始
+    C->>C: BatchQuery 开始，T_metadata 开始
+    Note over C,M: T_replica_rpc 开始
+    C->>M: MasterClient/RPC → BatchGetReplicaList
+    par 前台逐 shard 查询并完成读取
+        M->>M: 按 shard 聚合 keys
+        loop 每个 occupied shard s
+            M->>M: 获取 S(snapshot)
+            M->>L: 请求 R(s)，T_shard_wait(s) 开始
+            Note over M,L: 与竞争点①②③中同 shard 的 W(s) 互斥<br/>获授时间由实际读写锁调度决定
+            L-->>M: R(s) 获授，T_shard_wait(s) 结束
+            M->>M: 查询本 shard 的全部 keys；对可读对象续租
+            M->>L: 释放 R(s)
+            M->>M: 完成当前 shard 后续处理，释放 S(snapshot)
+        end
+        M-->>C: 返回整批 descriptor 或逐 key 错误，T_replica_rpc 结束
+        C->>C: BatchQuery 返回，T_metadata 结束
+        Note over C: T_replica_and_slice 开始
+        C->>C: SelectBestReplica / FilterQueryResult 与 slice 准备
+        Note over C: T_replica_and_slice 结束，T_payload 开始
+        C->>C: Client::BatchGet → local-copy / TCP / RDMA → completion 与校验
+        Note over C: T_payload 结束，T_result 开始
+        C->>C: 整理批量结果
+        C-->>S: 返回 batch_get 结果，T_result / T_storage 结束
+        S->>S: Host prefix 发布 → GPU 恢复 → prefill
+        Note over S: 首 token 产生，TTFT 结束
+    and 后台淘汰周期
+        E->>E: 高水位或分配失败触发 BatchEvict
+        Note over E: T_eviction_cycle 开始
+        E->>E: 获取 S(snapshot)
+        Note over E: T_phase1 开始
+        loop census worker 扫描及按需 frontier 物化
+            E->>L: 请求并获取 W(s) — 竞争点①
+            E->>E: 扫描当前 shard
+            E->>L: 释放 W(s)
+        end
+        E->>E: 完成 worker join、候选准备与 target 计算
+        Note over E: T_phase1 结束，T_phase2 开始
+        loop 候选选择与 first/lower-bound pass
+            E->>L: candidate apply 请求并获取 W(s) — 竞争点②
+            E->>E: fresh lookup 与锁内 revalidation
+            E->>E: 对通过校验的候选执行同步淘汰或 offload
+            E->>L: 释放 W(s)
+            opt 当前 pass 需要 refill
+                E->>L: refill 请求并获取 W(s) — 竞争点②
+                E->>E: 扫描当前 shard 并补充候选
+                E->>L: 释放 W(s)
+            end
+        end
+        Note over E: T_phase2 结束
+        loop 本轮发生淘汰的 shard
+            E->>L: 请求并获取 W(s) — 竞争点③
+            E->>E: sparse-map shrink
+            E->>L: 释放 W(s)
+        end
+        E->>E: cleanup
+        E->>E: 释放 S(snapshot)
+        Note over E: BatchEvict 返回，T_eviction_cycle 结束
+    end

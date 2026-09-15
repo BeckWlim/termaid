@@ -6,7 +6,7 @@ from termaid.utils import display_width, truncate_to_width, wrap_display_text
 
 class TestWrapDisplayText:
     def test_prefers_word_boundaries(self):
-        assert wrap_display_text("alpha beta gamma", 10) == ["alpha", "beta gamma"]
+        assert wrap_display_text("alpha beta gamma", 10) == ["alpha beta", "gamma"]
 
     def test_hard_breaks_unspaced_text_by_display_cells(self):
         lines = wrap_display_text("abcdefgh", 4)

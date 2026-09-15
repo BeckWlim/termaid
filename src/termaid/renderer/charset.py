@@ -68,6 +68,9 @@ class CharSet:
     sg_horizontal: str
     sg_vertical: str
 
+    # Lines crossing without a graph connection.
+    unconnected_crossing: str = "x"
+
 
 UNICODE = CharSet(
     # Box
@@ -119,6 +122,7 @@ ASCII = CharSet(
     tee_right="+", tee_left="+", tee_down="+", tee_up="+",
     # Cross
     cross="+",
+    unconnected_crossing="x",
     # Diamond
     diamond_top="/", diamond_bottom="\\", diamond_left="/", diamond_right="\\",
     # Endpoints

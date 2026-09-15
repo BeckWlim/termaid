@@ -100,10 +100,8 @@ def _wrap_sequence_events(events: list[Event], max_width: int) -> None:
         elif isinstance(event, Note):
             event.text = "\n".join(wrap_display_text(event.text, max_width))
         elif isinstance(event, Block):
-            event.label = "\n".join(wrap_display_text(event.label, max_width))
             _wrap_sequence_events(event.events, max_width)
             for section in event.sections:
-                section.label = "\n".join(wrap_display_text(section.label, max_width))
                 _wrap_sequence_events(section.events, max_width)
 
 
@@ -129,12 +127,52 @@ def _effective_label(msg: Message, msg_number: int | None) -> str:
     return msg.label
 
 
+def _self_loop_width(label: str) -> int:
+    return max(max(display_width(line) for line in _label_lines(label)) + 4, 8)
+
+
+def _refit_message_labels(
+    diagram: SequenceDiagram,
+    flat_events: list[_FlatEvent],
+    original_labels: dict[int, str],
+    col_centers: list[int],
+    loop_widths: dict[int, int],
+) -> None:
+    """Rewrap original text using the measured space between arrow endpoints.
+
+    The provisional node-label budget reserves geometry first. Message text
+    can then use the full arrow span without widening the diagram or keeping
+    line breaks introduced by the narrower provisional budget.
+    """
+    message_number = 0
+    for event_index, event in enumerate(flat_events):
+        if not isinstance(event, Message):
+            continue
+        message_number += 1
+        source_index = _participant_index(diagram, event.source)
+        target_index = _participant_index(diagram, event.target)
+        if source_index < 0 or target_index < 0:
+            continue
+        label_left = min(col_centers[source_index], col_centers[target_index]) + 2
+        label_right = (
+            col_centers[source_index] + loop_widths[event_index] - 1
+            if source_index == target_index
+            else max(col_centers[source_index], col_centers[target_index]) - 1
+        )
+        prefix_width = display_width(f"{message_number}: ") if diagram.autonumber else 0
+        label_budget = max(1, label_right - label_left - prefix_width)
+        event.label = "\n".join(wrap_display_text(original_labels[event_index], label_budget))
+
+
 def _compute_layout(
     diagram: SequenceDiagram,
     autonumber: bool,
     flat_events: list[_FlatEvent],
     padding_x: int = _BOX_PAD,
     min_gap: int = _MIN_GAP,
+    wrap_scope_labels: bool = False,
+    original_message_labels: dict[int, str] | None = None,
+    loop_widths: dict[int, int] | None = None,
 ) -> tuple[list[int], list[int], int, int, int, list[int], dict[int, tuple[int, int]]]:
     """Compute column center positions and box widths.
 
@@ -145,11 +183,15 @@ def _compute_layout(
         return [], [], 0, 0, 0, [], {}
 
     # Box widths based on label length
-    box_widths = [
+    natural_box_widths = [
         max(display_width(line) for line in _label_lines(p.label))
         + padding_x + 2
         for p in diagram.participants
     ]  # +2 for borders
+
+    # Match this header row without letting one long name widen every box.
+    matched_width = min(max(natural_box_widths), 25)
+    box_widths = [max(width, matched_width) for width in natural_box_widths]
 
     # Header height: tallest participant kind
     header_height = max(_participant_height(p) for p in diagram.participants)
@@ -232,7 +274,11 @@ def _compute_layout(
         eff = effective_labels[ev_idx]
         si = _participant_index(diagram, ev.source)
         ti = _participant_index(diagram, ev.target)
-        if si < 0 or ti < 0 or si == ti:
+        if si < 0 or ti < 0:
+            continue
+        if si == ti:
+            if si < n - 1:
+                gap_mins[si] = max(gap_mins[si], _self_loop_width(eff) + 2)
             continue
         lo, hi = min(si, ti), max(si, ti)
         label_need = max(display_width(line) for line in _label_lines(eff)) + 6
@@ -253,10 +299,7 @@ def _compute_layout(
         if isinstance(event, Message) and event.source == event.target:
             source_index = _participant_index(diagram, event.source)
             if source_index >= 0:
-                loop_width = max(
-                    max(display_width(line) for line in _label_lines(effective_labels[event_index])) + 4,
-                    8,
-                )
+                loop_width = _self_loop_width(effective_labels[event_index])
                 max_right = max(max_right, col_centers[source_index] + loop_width + 1)
         elif isinstance(event, Note):
             note_bounds = _note_bounds(event, col_centers, diagram)
@@ -269,7 +312,10 @@ def _compute_layout(
     # Measure scopes from their contents, then reserve enough space on both sides.
     # Moving lifelines together preserves message geometry and keeps outer frames
     # outside their children even when the first participant is near column zero.
-    raw_block_bounds = _compute_block_bounds(diagram, flat_events, col_centers, effective_labels)
+    raw_block_bounds = _compute_block_bounds(
+        diagram, flat_events, col_centers, effective_labels,
+        wrap_scope_labels=wrap_scope_labels,
+    )
     left_shift = max(0, -min((left for left, _ in raw_block_bounds.values()), default=0))
     shifted_centers = [center + left_shift for center in col_centers]
     block_bounds = {
@@ -278,20 +324,36 @@ def _compute_layout(
     }
     framed_right = max((right + 1 for _, right in block_bounds.values()), default=0)
 
-    # Compute row offsets (cumulative event heights)
+    canvas_width = max(max_right + left_shift, framed_right)
+    if original_message_labels is not None and loop_widths is not None:
+        _refit_message_labels(
+            diagram, flat_events, original_message_labels, shifted_centers, loop_widths,
+        )
+
+    # Compute row offsets after the final label wrapping, keeping horizontal
+    # geometry fixed so a longer annotation cannot stretch its arrow or frame.
     lifeline_start = _TOP_MARGIN + header_height
     row_offsets: list[int] = []
     cumulative = lifeline_start + 1
+    message_number = 0
     for event_index, h in enumerate(event_heights):
         event = flat_events[event_index]
         label_extra = 0
         if isinstance(event, Message):
-            label_extra = len(_label_lines(effective_labels[event_index])) - 1
+            message_number += 1
+            final_label = _effective_label(event, message_number if autonumber else None)
+            label_extra = len(_label_lines(final_label)) - 1
         row_offsets.append(cumulative + label_extra)
-        cumulative += h
+        if isinstance(event, Message):
+            cumulative += _EVENT_ROW_H + label_extra + int(event.source == event.target)
+        elif isinstance(event, _BlockStart):
+            cumulative += _BLOCK_START_H + len(_label_lines(event.block.label)) - 1
+        elif isinstance(event, _BlockSectionBreak):
+            cumulative += _BLOCK_SECTION_H + len(_label_lines(event.section.label)) - 1
+        else:
+            cumulative += h
 
-    # Canvas dimensions
-    canvas_width = max(max_right + left_shift, framed_right)
+    # Final vertical dimensions
     lifeline_end_row = cumulative
     canvas_height = lifeline_end_row + _BOTTOM_MARGIN
 
@@ -523,8 +585,8 @@ def _draw_participant_header(
         )
     else:
         # Default: participant box
-        box_height = len(_label_lines(label)) + 2
-        box_y = _TOP_MARGIN + (header_height - box_height)
+        box_height = header_height
+        box_y = _TOP_MARGIN
         bx = cx - bw // 2
         draw_rectangle(canvas, bx, box_y, bw, box_height, label, cs, style="node")
 
@@ -578,6 +640,11 @@ def render_sequence(
 ) -> Canvas:
     """Render a SequenceDiagram to a Canvas."""
     cs = ASCII if use_ascii else UNICODE
+    flat_events = _flatten_events(diagram.events)
+    original_message_labels = {
+        index: event.label for index, event in enumerate(flat_events)
+        if isinstance(event, Message)
+    } if max_label_width is not None else None
 
     if max_label_width is not None:
         for participant in diagram.participants:
@@ -586,11 +653,22 @@ def render_sequence(
             )
         _wrap_sequence_events(diagram.events, max_label_width)
 
-    # Flatten events for linear layout
-    flat_events = _flatten_events(diagram.events)
+    # Retain arrow endpoints while refitting labels to their measured spans.
+    loop_widths: dict[int, int] = {}
+    message_number = 0
+    for event_index, event in enumerate(flat_events):
+        if isinstance(event, Message):
+            message_number += 1
+            if event.source == event.target:
+                loop_widths[event_index] = _self_loop_width(
+                    _effective_label(event, message_number if diagram.autonumber else None),
+                )
 
     col_centers, box_widths, width, height, header_height, row_offsets, block_bounds = _compute_layout(
-        diagram, diagram.autonumber, flat_events, padding_x=padding_x, min_gap=gap
+        diagram, diagram.autonumber, flat_events, padding_x=padding_x, min_gap=gap,
+        wrap_scope_labels=max_label_width is not None,
+        original_message_labels=original_message_labels,
+        loop_widths=loop_widths,
     )
     if width == 0:
         return Canvas(1, 1)
@@ -637,9 +715,9 @@ def render_sequence(
             if block_border_stack:
                 left, right, start_row = block_border_stack.pop()
                 for r in range(start_row + 1, row):
-                    canvas.put(r, left, cs.vertical, merge=False, style="node")
+                    canvas.put(r, left, cs.vertical, merge=False, style="subgraph")
                     if right < canvas.width:
-                        canvas.put(r, right, cs.vertical, merge=False, style="node")
+                        canvas.put(r, right, cs.vertical, merge=False, style="subgraph")
 
     # ── 3. Draw events (messages, notes, blocks) ──────────────────
     msg_counter = 0
@@ -684,7 +762,10 @@ def render_sequence(
                 continue
 
             if si == ti:
-                _draw_self_message(canvas, col_centers[si], row, ev, display_label, cs, use_ascii)
+                _draw_self_message(
+                    canvas, col_centers[si], row, ev, display_label, cs, use_ascii,
+                    loop_width=loop_widths[idx],
+                )
             else:
                 _draw_message(canvas, col_centers[si], col_centers[ti], row, ev, display_label, cs, use_ascii)
 
@@ -698,6 +779,7 @@ def _compute_block_bounds(
     flat_events: list[_FlatEvent],
     col_centers: list[int],
     effective_labels: list[str],
+    *, wrap_scope_labels: bool = False,
 ) -> dict[int, tuple[int, int]]:
     """Measure each frame bottom-up, including every branch and child frame."""
     block_bounds: dict[int, tuple[int, int]] = {}
@@ -711,6 +793,22 @@ def _compute_block_bounds(
             content_left = min((left for left, _ in contents), default=col_centers[0])
             content_right = max((right for _, right in contents), default=content_left)
             frame_left = content_left - 2
+            if wrap_scope_labels:
+                # Scope headings span the measured contents, independently of
+                # the narrow participant/message label budget. Measure children
+                # first so their frames remain inside the parent.
+                prefix = f"[{event.block.kind}] "
+                title_budget = max(content_right + 2 - frame_left - 1, len(prefix) + 2)
+                wrapped_title = "\n".join(wrap_display_text(
+                    prefix + event.block.label, title_budget,
+                ))
+                event.block.label = wrapped_title[len(prefix):]
+                for section in event.block.sections:
+                    if section.label:
+                        wrapped_section = "\n".join(wrap_display_text(
+                            f"[{section.label}]", max(3, title_budget - 2),
+                        ))
+                        section.label = wrapped_section[1:-1]
             title = f"[{event.block.kind}] {event.block.label}".rstrip()
             title_width = max(display_width(line) for line in _label_lines(title))
             section_width = max((
@@ -762,7 +860,7 @@ def _draw_block_start(
     """Draw the top border of a block frame with kind label."""
     left, right = frame_bounds
     h_char = cs.horizontal
-    style = "node"
+    style = "subgraph"
 
     # Top border
     canvas.put(row, left, cs.top_left, merge=False, style=style)
@@ -771,7 +869,7 @@ def _draw_block_start(
     if right < canvas.width:
         canvas.put(row, right, cs.top_right, merge=False, style=style)
 
-    # Label row: [kind] label — clear interior first to hide lifeline chars
+    # Hide lifelines only underneath the hint; preserve the rest of the row.
     label = f"[{ev.block.kind}] {ev.block.label}" if ev.block.label else f"[{ev.block.kind}]"
     label_col = left + 1
     for label_offset, label_line in enumerate(_label_lines(label), start=1):
@@ -779,11 +877,9 @@ def _draw_block_start(
         if label_row >= canvas.height:
             break
         canvas.put(label_row, left, cs.vertical, merge=False, style=style)
-        for c in range(left + 1, min(right, canvas.width)):
-            canvas._grid[label_row][c] = " "
         if right < canvas.width:
             canvas.put(label_row, right, cs.vertical, merge=False, style=style)
-        canvas.put_text(label_row, label_col, label_line, style="edge_label")
+        canvas.put_text(label_row, label_col, label_line, style="subgraph_label", overwrite_spaces=True)
 
 
 def _draw_block_section(
@@ -797,7 +893,7 @@ def _draw_block_section(
     """Draw a dashed horizontal divider for else/and sections."""
     left, right = frame_bounds
     dash = "." if use_ascii else "┄"
-    style = "node"
+    style = "subgraph"
 
     canvas.put(row, left, cs.vertical, merge=False, style=style)
     for c in range(left + 1, min(right, canvas.width)):
@@ -808,12 +904,10 @@ def _draw_block_section(
     # Section label after left border
     if ev.section.label:
         for label_offset, label_line in enumerate(_label_lines(f"[{ev.section.label}]")):
-            if label_offset > 0:
-                for column in range(left + 1, right):
-                    canvas._grid[row + label_offset][column] = " "
-            for column in range(left + 2, left + 2 + display_width(label_line)):
-                canvas._grid[row + label_offset][column] = " "
-            canvas.put_text(row + label_offset, left + 2, label_line, style="edge_label")
+            canvas.put_text(
+                row + label_offset, left + 2, label_line,
+                style="subgraph_label", overwrite_spaces=True,
+            )
 
 
 def _draw_block_end(
@@ -827,7 +921,7 @@ def _draw_block_end(
     """Draw the bottom border of a block frame."""
     left, right = frame_bounds
     h_char = cs.horizontal
-    style = "node"
+    style = "subgraph"
 
     canvas.put(row, left, cs.bottom_left, merge=False, style=style)
     for c in range(left + 1, min(right, canvas.width)):
@@ -920,8 +1014,9 @@ def _draw_message(
     use_ascii: bool,
 ) -> None:
     """Draw a horizontal message arrow between two lifelines."""
-    left = min(src_col, tgt_col)
-    right = max(src_col, tgt_col)
+    # One blank cell separates each arrow end from its participant lifeline.
+    left = min(src_col, tgt_col) + 2
+    right = max(src_col, tgt_col) - 2
     going_right = tgt_col > src_col
 
     # Line character
@@ -930,9 +1025,13 @@ def _draw_message(
     else:
         h_char = "-" if use_ascii else "─"
 
-    # Draw the line (excluding endpoints which are lifeline chars)
+    # Unavoidable crossings through uninvolved lifelines stay distinguishable
+    # from endpoints; the participant lines at either end remain untouched.
     for c in range(left + 1, right):
-        canvas.put(row, c, h_char, merge=False, style="edge")
+        existing_character = canvas.get(row, c)
+        crossing = existing_character in ("┆", "║", ":", "[")
+        segment_character = "x" if crossing else h_char
+        canvas.put(row, c, segment_character, merge=False, style="edge")
 
     # Arrowhead at target
     if msg.arrow_type == "bidirectional":
@@ -977,7 +1076,7 @@ def _draw_message(
         label_row = row - len(lines)
         for offset, line in enumerate(lines):
             canvas.put_text(
-                label_row + offset, left + 2, line, style="edge_label",
+                label_row + offset, left, line, style="edge_label", overwrite_spaces=True,
             )
 
 
@@ -989,12 +1088,10 @@ def _draw_self_message(
     display_label: str,
     cs: CharSet,
     use_ascii: bool,
+    *, loop_width: int | None = None,
 ) -> None:
     """Draw a self-referencing message (loop to the right)."""
-    loop_width = max(
-        max(display_width(line) for line in _label_lines(display_label)) + 4,
-        8,
-    )
+    effective_loop_width = loop_width if loop_width is not None else _self_loop_width(display_label)
 
     if msg.line_type == "dotted":
         h_char = "." if use_ascii else "┄"
@@ -1004,27 +1101,27 @@ def _draw_self_message(
         v_char = "|" if use_ascii else "│"
 
     # Top horizontal line going right
-    for c in range(col + 1, col + loop_width):
+    for c in range(col + 2, col + effective_loop_width):
         canvas.put(row, c, h_char, merge=False, style="edge")
 
     # Vertical line going down
-    right_col = col + loop_width - 1
+    right_col = col + effective_loop_width - 1
     canvas.put(row + 1, right_col, v_char, merge=False, style="edge")
 
     # Bottom horizontal line going left back to lifeline
-    for c in range(col + 1, col + loop_width):
+    for c in range(col + 2, col + effective_loop_width):
         canvas.put(row + 1, c, h_char, merge=False, style="edge")
 
     # Arrowhead pointing back at lifeline
     if msg.arrow_type == "arrow":
         arrow = "<" if use_ascii else "◄"
-        canvas.put(row + 1, col, arrow, merge=False, style="arrow")
+        canvas.put(row + 1, col + 2, arrow, merge=False, style="arrow")
     elif msg.arrow_type == "cross":
-        canvas.put(row + 1, col, "x", merge=False, style="arrow")
+        canvas.put(row + 1, col + 2, "x", merge=False, style="arrow")
     elif msg.arrow_type == "async":
-        canvas.put(row + 1, col, "(", merge=False, style="arrow")
+        canvas.put(row + 1, col + 2, "(", merge=False, style="arrow")
     else:
-        canvas.put(row + 1, col, h_char, merge=False, style="edge")
+        canvas.put(row + 1, col + 2, h_char, merge=False, style="edge")
 
     # Corners
     if not use_ascii:
@@ -1040,5 +1137,5 @@ def _draw_self_message(
         label_row = row - len(lines)
         for offset, line in enumerate(lines):
             canvas.put_text(
-                label_row + offset, col + 2, line, style="edge_label",
+                label_row + offset, col + 2, line, style="edge_label", overwrite_spaces=True,
             )

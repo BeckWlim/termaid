@@ -72,6 +72,9 @@ def render_styled(
     gap: int = 4,
     inline_edge_labels: bool = False,
     max_label_width: int | None = None,
+    uniform_nodes: bool = False,
+    arrow_position: str = "end",
+    max_width: int | None = None,
     force_vertical: bool = False,
 ) -> dict[str, Any]:
     """Render Mermaid source as versioned semantic chunks without Rich."""
@@ -132,6 +135,8 @@ def render_styled(
             padding_y=padding_y,
             rounded_edges=rounded_edges,
             gap=gap,
+            arrow_position=arrow_position,
+            max_width=max_width,
         )
     elif text.startswith("pie"):
         from ..parser.piechart import parse_pie_chart
@@ -203,5 +208,8 @@ def render_styled(
             gap=gap,
             inline_edge_labels=inline_edge_labels,
             max_label_width=max_label_width,
+            uniform_nodes=uniform_nodes,
+            max_width=max_width,
+            arrow_position=arrow_position,
         )
     return serialize_canvas(canvas)

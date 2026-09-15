@@ -63,6 +63,49 @@ def place_nodes(
                     layout.grid_occupied[(gc.col + dc, gc.row + dr)] = nid
 
 
+def reserve_return_margin(graph: Graph, layout: GridLayout, max_label_width: int | None = None) -> None:
+    """Leave an outer lane for backward edges along the first node column.
+
+    The label gets its own cell before the lane, so even a compact grid can
+    route on the left without clipping text or squeezing it into node boxes.
+    Horizontal diagrams use the equivalent lane above their first row.
+    """
+    if graph.subgraphs or not layout.placements:
+        return
+    horizontal = graph.direction.normalized().is_horizontal
+    first_position = min(placement.grid.row if horizontal else placement.grid.col
+                         for placement in layout.placements.values())
+    return_labels: list[str] = []
+    for edge in graph.edges:
+        source = layout.placements.get(edge.source)
+        target = layout.placements.get(edge.target)
+        if source is None or target is None:
+            continue
+        source_position = source.grid.row if horizontal else source.grid.col
+        target_position = target.grid.row if horizontal else target.grid.col
+        source_layer = source.grid.col if horizontal else source.grid.row
+        target_layer = target.grid.col if horizontal else target.grid.row
+        if source_position == target_position == first_position and target_layer < source_layer:
+            return_labels.append(edge.label)
+    if not return_labels:
+        return
+    delta_col, delta_row = (0, 2) if horizontal else (2, 0)
+    for placement in layout.placements.values():
+        placement.grid = GridCoord(placement.grid.col + delta_col, placement.grid.row + delta_row)
+    layout.grid_occupied = {(col + delta_col, row + delta_row): owner
+                           for (col, row), owner in layout.grid_occupied.items()}
+    if horizontal:
+        layout.row_heights[0] = 1
+        layout.row_heights[1] = 3
+    else:
+        natural_width = max(1, max(display_width(label) for label in return_labels))
+        # In fitted diagrams reserve a modest structural return corridor.
+        # Edge sentences wrap later and must not set the node-column offset.
+        corridor_width = min(24, 6 * (len(return_labels) + 2))
+        layout.col_widths[0] = corridor_width if max_label_width is not None else natural_width
+        layout.col_widths[1] = 3
+
+
 def _can_place(layout: GridLayout, gc: GridCoord) -> bool:
     """Check if a 3x3 block centered at gc is free."""
     for dc in range(-1, 2):
@@ -72,13 +115,29 @@ def _can_place(layout: GridLayout, gc: GridCoord) -> bool:
     return True
 
 
-def normalize_sizes(graph: Graph, layout: GridLayout) -> None:
+def normalize_sizes(
+    graph: Graph, layout: GridLayout, *, uniform_nodes: bool = False,
+) -> None:
     """Normalize node dimensions within the same layer, capped at a maximum.
 
     Nodes at the same flow level (same layer) are normalized to the same
     perpendicular dimension so side-by-side nodes look consistent.
     """
     direction = graph.direction.normalized()
+
+    if uniform_nodes:
+        box_placements = [
+            placement for node_id, placement in layout.placements.items()
+            if graph.nodes[node_id].shape != NodeShape.JUNCTION
+        ]
+        if not box_placements:
+            return
+        common_width = max(layout.col_widths[placement.grid.col] for placement in box_placements)
+        common_height = max(layout.row_heights[placement.grid.row] for placement in box_placements)
+        for placement in box_placements:
+            layout.col_widths[placement.grid.col] = common_width
+            layout.row_heights[placement.grid.row] = common_height
+        return
 
     # Group placements by layer
     layer_groups: dict[int, list[NodePlacement]] = {}
@@ -206,10 +265,12 @@ def compute_sizes(
             layout.row_heights[r] = max(gap - 1, 1)  # gap rows
 
     # Expand gaps to fit edge labels
-    _expand_gaps_for_edge_labels(graph, layout)
+    _expand_gaps_for_edge_labels(graph, layout, compact=max_label_width is not None)
 
 
-def _expand_gaps_for_edge_labels(graph: Graph, layout: GridLayout) -> None:
+def _expand_gaps_for_edge_labels(
+    graph: Graph, layout: GridLayout, *, compact: bool = False,
+) -> None:
     """Expand gap cells between nodes to fit edge labels.
 
     For horizontal flow (LR): expand gap columns so labels fit on
@@ -256,6 +317,12 @@ def _expand_gaps_for_edge_labels(graph: Graph, layout: GridLayout) -> None:
             # Need enough vertical space: at least 2 rows for the label
             cur = layout.row_heights.get(gap_start, 3)
             layout.row_heights[gap_start] = max(cur, 3)
+
+            # Fitted vertical diagrams place labels in the routing rows.
+            # Reserving the entire label in every crossed column gap
+            # consumes the width budget before node text can use it.
+            if compact:
+                continue
 
             # Also ensure the gap column beside the edge is wide enough
             # for the label text. The edge typically runs in a border col;

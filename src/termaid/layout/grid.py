@@ -176,9 +176,10 @@ def compute_layout(
     padding_y: int = 2,
     gap: int = 4,
     max_label_width: int | None = None,
+    uniform_nodes: bool = False,
 ) -> GridLayout:
-    gap = max(gap, 1)  # minimum 1 for arrow visibility
     """Compute the grid layout for a graph."""
+    effective_gap = max(gap, 1)  # minimum 1 for arrow visibility
     # Lazy imports to avoid circular references at module load time
     from .layers import (
         assign_layers,
@@ -187,7 +188,7 @@ def compute_layout(
         order_layers,
         separate_subgraph_layers,
     )
-    from .placement import place_nodes, compute_sizes, normalize_sizes
+    from .placement import place_nodes, compute_sizes, normalize_sizes, reserve_return_margin
     from .subgraphs import expand_gaps_for_subgraphs, compute_subgraph_bounds
     from .coordinates import compute_draw_coords, adjust_for_negative_bounds
 
@@ -226,14 +227,16 @@ def compute_layout(
     # Step 3: Place nodes on the grid (with expanded gaps for crossings)
     place_nodes(graph, layout, layer_order, direction, gap_expansions)
 
+    reserve_return_margin(graph, layout, max_label_width=max_label_width)
+
     # Step 4: Compute column widths and row heights (with word wrapping)
     compute_sizes(
-        graph, layout, padding_x, padding_y, gap,
+        graph, layout, padding_x, padding_y, effective_gap,
         max_label_width=max_label_width,
     )
 
     # Step 4b: Normalize sizes (per-layer, capped)
-    normalize_sizes(graph, layout)
+    normalize_sizes(graph, layout, uniform_nodes=uniform_nodes)
 
     # Step 5: Expand gaps for subgraph borders and labels
     expand_gaps_for_subgraphs(graph, layout, direction)

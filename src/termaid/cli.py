@@ -68,6 +68,9 @@ def _auto_fit(
             rounded_edges=not args.sharp_edges,
             gap=gap,
             inline_edge_labels=args.inline_edge_labels,
+            uniform_nodes=args.uniform_nodes,
+            arrow_position=args.arrow_position,
+            max_width=target_width,
             max_label_width=label_width,
             force_vertical=force_vertical,
         )
@@ -90,7 +93,7 @@ def _auto_fit(
         lower = 1
         upper = min(target_width, 64)
         best = None
-        best_width = -1
+        best_label_width = -1
         for _ in range(6):
             if lower > upper:
                 break
@@ -103,9 +106,9 @@ def _auto_fit(
             candidate_width = _max_line_width(_plain(candidate))
             result = candidate
             if candidate_width <= target_width:
-                if candidate_width > best_width:
+                if label_width > best_label_width:
                     best = candidate
-                    best_width = candidate_width
+                    best_label_width = label_width
                 lower = label_width + 1
             else:
                 upper = label_width - 1
@@ -205,6 +208,14 @@ def main(argv: list[str] | None = None) -> int:
         type=int,
         default=None,
         help="Target output width in terminal display cells.",
+    )
+    parser.add_argument(
+        "--arrow-position", choices=("end", "middle"), default="end",
+        help="Flowchart arrowheads: at endpoints (default) or along clear middle segments",
+    )
+    parser.add_argument(
+        "--uniform-nodes", action="store_true",
+        help="Use common flowchart node dimensions before width fitting and routing.",
     )
     parser.add_argument(
         "--strict-width",
@@ -354,6 +365,9 @@ def main(argv: list[str] | None = None) -> int:
                 rounded_edges=not args.sharp_edges,
                 gap=args.gap,
                 inline_edge_labels=args.inline_edge_labels,
+                uniform_nodes=args.uniform_nodes,
+                arrow_position=args.arrow_position,
+                max_width=args.width,
             )
             styled_result = _auto_fit(
                 styled_result,
@@ -416,6 +430,9 @@ def main(argv: list[str] | None = None) -> int:
                 rounded_edges=not args.sharp_edges,
                 gap=args.gap,
                 inline_edge_labels=args.inline_edge_labels,
+                uniform_nodes=args.uniform_nodes,
+                arrow_position=args.arrow_position,
+                max_width=args.width,
             )
             rich_result = _auto_fit(
                 rich_result, render_source, args,
@@ -460,6 +477,9 @@ def main(argv: list[str] | None = None) -> int:
                 rounded_edges=not args.sharp_edges,
                 gap=args.gap,
                 inline_edge_labels=args.inline_edge_labels,
+                uniform_nodes=args.uniform_nodes,
+                arrow_position=args.arrow_position,
+                max_width=args.width,
             )
             result = _auto_fit(
                 result, render_source, args,
