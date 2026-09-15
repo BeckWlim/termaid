@@ -54,9 +54,11 @@ def test_middle_choice_survives_strict_width_fitting(output_format, initial_gap,
         output = captured.out
     assert sum(output.count(head) for head in '►◄▲▼') == 6
     assert 'x' in output and '╳' not in output  # Crossing remains distinguishable from a junction.
-    assert output.count('[1]') == 2 and output.count('[2]') == 2
-    assert '[1] edge01' in output
-    assert '[2] N4 to N0: edge07' in output
+    # Spacing feedback recovers edge01 beside its route. Only edge07 still
+    # needs a reference, and all six edge labels remain present exactly once.
+    assert output.count('[1]') == 2 and '[2]' not in output
+    assert '[1] edge07' in output
+    assert all(output.count(f'edge{number:02}') == 1 for number in (1, 2, 3, 5, 6, 7))
     assert max(map(display_width, output.splitlines())) <= 25
     for node_number in range(6):
         assert f'N{node_number}' in output

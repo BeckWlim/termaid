@@ -6,7 +6,12 @@ import json
 import os
 import shutil
 import sys
+from typing import Callable, TypeVar
 from .utils import display_width
+from .layout.fitting import score_render
+
+
+RenderResult = TypeVar("RenderResult")
 
 
 def _get_version() -> str:
@@ -35,108 +40,106 @@ def _plain(result) -> str:
 
 
 def _auto_fit(
-    result,
+    result: RenderResult,
     source: str,
     args: argparse.Namespace,
-    render_fn,
+    render_fn: Callable[..., RenderResult],
     target_width: int | None = None,
-):
+) -> RenderResult:
     """Re-render with smaller gap/padding if the diagram exceeds target width.
 
     target_width: explicit width limit (from --width), or None to use
     terminal width.  Disabled when --no-auto-fit is set or output is
     not a terminal (unless --width is explicitly given).
     """
-    if target_width is None:
-        if args.no_auto_fit or not sys.stdout.isatty():
-            return result
-        target_width = shutil.get_terminal_size().columns
-
-    if _max_line_width(_plain(result)) <= target_width:
+    if target_width is None and (args.no_auto_fit or not sys.stdout.isatty()):
+        return result
+    width_limit = target_width if target_width is not None else shutil.get_terminal_size().columns
+    initial_score = score_render(_plain(result), width_limit, label_budget=65,
+                                 height_limit=args.max_height)
+    if initial_score.width_overflow == 0 and (
+        args.fit_mode == "compact" or initial_score.references == initial_score.height_overflow == 0
+    ):
         return result
 
-    def render_candidate(overrides: dict[str, int | bool]):
-        gap = overrides.get("gap", args.gap)
-        px = overrides.get("padding_x", args.padding_x)
-        label_width = overrides.get("max_label_width")
-        force_vertical = overrides.get("force_vertical", False)
+    def render_candidate(*, gap: int, padding_x: int, label_width: int | None = None,
+                         force_vertical: bool = False) -> RenderResult:
         return render_fn(
             source,
             use_ascii=args.ascii,
-            padding_x=px,
+            padding_x=padding_x,
             padding_y=args.padding_y,
             rounded_edges=not args.sharp_edges,
             gap=gap,
             inline_edge_labels=args.inline_edge_labels,
             uniform_nodes=args.uniform_nodes,
             arrow_position=args.arrow_position,
-            max_width=target_width,
+            max_width=width_limit,
             max_label_width=label_width,
             force_vertical=force_vertical,
         )
 
+    best_result = result
+    best_score = initial_score
     if args.fit_mode == "compact":
-        # Including the initial render, compact mode attempts at most three
-        # layouts and preserves labels exactly.
-        for overrides in (
-            {"gap": min(args.gap, 2), "padding_x": args.padding_x},
-            {"gap": 1, "padding_x": 0},
-        ):
-            candidate = render_candidate(overrides)
-            if _max_line_width(_plain(candidate)) <= target_width:
+        # Spacing-only mode preserves labels and attempts at most three layouts.
+        for candidate_gap, candidate_padding in ((min(args.gap, 2), args.padding_x), (1, 0)):
+            candidate = render_candidate(gap=candidate_gap, padding_x=candidate_padding)
+            candidate_score = score_render(_plain(candidate), width_limit, label_budget=65,
+                                           height_limit=args.max_height)
+            if candidate_score < best_score:
+                best_result, best_score = candidate, candidate_score
+            if candidate_score.width_overflow == 0:
                 return candidate
-            result = candidate
     else:
-        # Search label widths instead of jumping through a few fixed values.
-        # Six iterations keep the complete fit operation at no more than
-        # eight renders (initial + search + optional vertical fallback).
+        # Keep the eight-render bound: initial + six measured candidates +
+        # optional spacing/reflow retry. Compare every visited candidate by quality.
         lower = 1
-        upper = min(target_width, 64)
-        best = None
-        best_label_width = -1
+        upper = min(width_limit, 64)
         for _ in range(6):
             if lower > upper:
                 break
             label_width = (lower + upper) // 2
-            candidate = render_candidate({
-                "gap": 1,
-                "padding_x": 0,
-                "max_label_width": label_width,
-            })
-            candidate_width = _max_line_width(_plain(candidate))
-            result = candidate
-            if candidate_width <= target_width:
-                if label_width > best_label_width:
-                    best = candidate
-                    best_label_width = label_width
+            candidate = render_candidate(gap=1, padding_x=0, label_width=label_width)
+            candidate_score = score_render(_plain(candidate), width_limit,
+                                           label_budget=label_width, height_limit=args.max_height)
+            if candidate_score < best_score:
+                best_result, best_score = candidate, candidate_score
+            if candidate_score.width_overflow == 0:
                 lower = label_width + 1
             else:
                 upper = label_width - 1
 
-        if best is not None:
-            return best
+        if best_score.width_overflow == 0 and best_score.height_overflow == 0:
+            if best_score.references:
+                # Feed label failures back into layout once. Extra routing
+                # space may remove references without shrinking node names.
+                spaced_budget = -best_score.negative_label_budget
+                spaced_result = render_candidate(gap=3, padding_x=0,
+                                                 label_width=spaced_budget)
+                spaced_score = score_render(_plain(spaced_result), width_limit,
+                                            label_budget=spaced_budget, height_limit=args.max_height)
+                if spaced_score < best_score:
+                    return spaced_result
+            return best_result
 
         if args.fit_mode == "reflow":
-            result = render_candidate({
-                "gap": 1,
-                "padding_x": 0,
-                "max_label_width": 5,
-                "force_vertical": True,
-            })
-            if _max_line_width(_plain(result)) <= target_width:
-                return result
+            vertical_result = render_candidate(gap=1, padding_x=0, label_width=5,
+                                               force_vertical=True)
+            vertical_score = score_render(_plain(vertical_result), width_limit,
+                                          label_budget=5, height_limit=args.max_height)
+            if vertical_score < best_score:
+                best_result, best_score = vertical_result, vertical_score
 
-    result_width = _max_line_width(_plain(result))
-    if result_width > target_width:
+    if best_score.width_overflow > 0:
         level = "Error" if args.strict_width else "Warning"
         print(
-            f"{level}: diagram is {result_width} cols wide "
-            f"but target is {target_width}. "
+            f"{level}: diagram is {best_score.width} cols wide "
+            f"but target is {width_limit}. "
             f"Try: less -S, or use 'graph TD' for vertical layout.",
             file=sys.stderr,
         )
-
-    return result
+    return best_result
 
 
 def _read_source(args: argparse.Namespace) -> str | None:

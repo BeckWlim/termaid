@@ -82,7 +82,7 @@ def test_message_uses_arrow_span_without_crossing_endpoints(reverse, autonumber)
     assert lines[1].index('C') == right + 36
 
 
-def test_self_message_stays_inside_its_loop_and_keeps_timing_phrase():
+def test_self_message_uses_clear_label_space_and_keeps_timing_phrase():
     diagram = parse_sequence_diagram('''sequenceDiagram
 participant A
 participant B
@@ -91,14 +91,59 @@ A->>A: BatchQuery 返回，T_metadata 结束''')
     lines = canvas.to_string().splitlines()
     left = lines[1].index('A')
     loop_row = next(row for row in lines[3:] if '┐' in row)
-    right = loop_row.index('┐')
+    loop_right = loop_row.index('┐')
+    next_lifeline = lines[1].index('B')
+    assert loop_right < next_lifeline
     label_rows = []
     for row in canvas.to_styled_pairs():
         columns = [column for column, (_, style) in enumerate(row) if style == 'edge_label']
         if columns:
-            assert left < min(columns) <= max(columns) < right
+            assert left < min(columns) <= max(columns) < next_lifeline
             label_rows.append(''.join(character for character, style in row if style == 'edge_label'))
     assert label_rows == ['BatchQuery 返回，', 'T_metadata 结束']
+
+
+@pytest.mark.parametrize('use_ascii', [False, True])
+@pytest.mark.parametrize('gap', [52, 80])
+def test_self_loop_cap_is_proportional_and_independent_of_long_label_length(use_ascii, gap):
+    reaches = []
+    for label in ('prepare standby controller', 'start admin server and enter standby'):
+        diagram = parse_sequence_diagram('\n'.join([
+            'sequenceDiagram', 'participant A', 'participant B', 'participant C',
+            f'A->>A: {label}',
+        ]))
+        canvas = render_sequence(diagram, use_ascii=use_ascii, gap=gap)
+        lines = canvas.to_string().splitlines()
+        left = lines[1].index('A')
+        next_lifeline = lines[1].index('B')
+        loop_row = next(line for line in lines[3:] if ('+' if use_ascii else '┐') in line)
+        loop_right = loop_row.index('+' if use_ascii else '┐')
+        reach = loop_right - left + 1
+        assert reach == max(10, int(canvas.width * 0.15))
+        assert loop_right < next_lifeline - 1
+        label_row = next(line for line in lines if label in line)
+        assert label_row.index(label) + display_width(label) > loop_right
+        assert label_row[next_lifeline] == (':' if use_ascii else '┆')
+        reaches.append(reach)
+    assert reaches[0] == reaches[1]
+
+
+@pytest.mark.parametrize('use_ascii', [False, True])
+@pytest.mark.parametrize('label', ['', 'x', 'local work'])
+def test_short_self_loop_keeps_eight_visible_cells_and_neighbor_clear(use_ascii, label):
+    diagram = parse_sequence_diagram('\n'.join([
+        'sequenceDiagram', 'participant A', 'participant B', f'A->>A: {label}',
+    ]))
+    canvas = render_sequence(diagram, use_ascii=use_ascii, gap=1, max_label_width=3)
+    lines = canvas.to_string().splitlines()
+    left = lines[1].index('A')
+    next_lifeline = lines[1].index('B')
+    loop_row_index = next(index for index, line in enumerate(lines[3:], start=3)
+                          if ('+' if use_ascii else '┐') in line)
+    loop_right = lines[loop_row_index].index('+' if use_ascii else '┐')
+    assert loop_right - (left + 2) + 1 >= 8
+    assert loop_right <= next_lifeline - 2
+    assert canvas.get(loop_row_index + 1, left + 2) == ('<' if use_ascii else '◄')
 
 
 @pytest.mark.parametrize('label', ['one\ntwo', 'one\n\ntwo'])

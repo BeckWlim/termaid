@@ -1,0 +1,609 @@
+{
+  "baseline_commit": "8960119",
+  "warm": {
+    "checkpoint": {
+      "source_root": "/tmp/termaid-perf-8960119/src",
+      "python": "3.11.4 (main, Jul 29 2026, 21:27:37) [GCC 13.3.0]",
+      "repeats": 7,
+      "measurements": [
+        {
+          "fixture": "production_architecture",
+          "width": 68,
+          "median_ms": 43.088107006042264,
+          "min_ms": 42.1090349991573,
+          "max_ms": 46.00908399152104,
+          "output_rows": 45,
+          "output_bytes": 15004,
+          "sha256": "1d9b281d0dcb5a139db4d0434bf586c544990623ce7cd222030193fd62aeaeb8"
+        },
+        {
+          "fixture": "production_architecture",
+          "width": 100,
+          "median_ms": 55.184468990773894,
+          "min_ms": 44.713342998875305,
+          "max_ms": 69.1444709955249,
+          "output_rows": 37,
+          "output_bytes": 12909,
+          "sha256": "992359f948619e410e180246a57725aae364961f42a8758c2fc2e3069c2f0129"
+        },
+        {
+          "fixture": "production_architecture",
+          "width": 160,
+          "median_ms": 74.863946007099,
+          "min_ms": 67.52663699444383,
+          "max_ms": 85.62802500091493,
+          "output_rows": 33,
+          "output_bytes": 12638,
+          "sha256": "8bc36ab930b30ab309b8ff160b190a06c854f3da1296e528b21064ca7ba4234b"
+        },
+        {
+          "fixture": "production_supervisor_state",
+          "width": 68,
+          "median_ms": 228.76282599463593,
+          "min_ms": 216.53281299222726,
+          "max_ms": 242.10183900140692,
+          "output_rows": 40,
+          "output_bytes": 11449,
+          "sha256": "c405e89f818c4dd4673b22f496a49195f40a73c8daade85754a7f3e575f864fb"
+        },
+        {
+          "fixture": "production_supervisor_state",
+          "width": 100,
+          "median_ms": 171.81223900115583,
+          "min_ms": 162.5659290002659,
+          "max_ms": 178.59738899278454,
+          "output_rows": 40,
+          "output_bytes": 11280,
+          "sha256": "a7828f651ad3d6fc917fee99a3bff59b4f8d25da8b57110efbe75d3d7eae2f52"
+        },
+        {
+          "fixture": "production_supervisor_state",
+          "width": 160,
+          "median_ms": 237.18372599978466,
+          "min_ms": 196.02494200807996,
+          "max_ms": 267.1837600064464,
+          "output_rows": 40,
+          "output_bytes": 11280,
+          "sha256": "a7828f651ad3d6fc917fee99a3bff59b4f8d25da8b57110efbe75d3d7eae2f52"
+        },
+        {
+          "fixture": "production_lease_race",
+          "width": 68,
+          "median_ms": 156.7709439987084,
+          "min_ms": 137.819790004869,
+          "max_ms": 218.95313198911026,
+          "output_rows": 98,
+          "output_bytes": 36948,
+          "sha256": "4f394e5440a5325e4f7601b29afccacf56d30a1d1a311ff9c04f19f9520f1d95"
+        },
+        {
+          "fixture": "production_lease_race",
+          "width": 100,
+          "median_ms": 140.99125200300477,
+          "min_ms": 123.84998999186791,
+          "max_ms": 340.80376199563034,
+          "output_rows": 83,
+          "output_bytes": 35107,
+          "sha256": "ea0f27794c8041896db7f3e5f49cc3654312ddaaf9d5b7aede4af03bc9f16cb8"
+        },
+        {
+          "fixture": "production_lease_race",
+          "width": 160,
+          "median_ms": 24.56273400457576,
+          "min_ms": 21.64663199800998,
+          "max_ms": 33.501184996566735,
+          "output_rows": 71,
+          "output_bytes": 35955,
+          "sha256": "ba55c71d32b53bb0e18952697a3c0109a872ab5064dd7dc4aad869d606648189"
+        }
+      ]
+    },
+    "before": {
+      "source_root": "/tmp/termaid-perf-before/src",
+      "python": "3.11.4 (main, Jul 29 2026, 21:27:37) [GCC 13.3.0]",
+      "repeats": 7,
+      "measurements": [
+        {
+          "fixture": "production_architecture",
+          "width": 68,
+          "median_ms": 76.77157199941576,
+          "min_ms": 73.53425599285401,
+          "max_ms": 97.15378499822691,
+          "output_rows": 45,
+          "output_bytes": 15004,
+          "sha256": "1d9b281d0dcb5a139db4d0434bf586c544990623ce7cd222030193fd62aeaeb8"
+        },
+        {
+          "fixture": "production_architecture",
+          "width": 100,
+          "median_ms": 108.30084899498615,
+          "min_ms": 96.63587600516621,
+          "max_ms": 125.34676400537137,
+          "output_rows": 37,
+          "output_bytes": 12909,
+          "sha256": "992359f948619e410e180246a57725aae364961f42a8758c2fc2e3069c2f0129"
+        },
+        {
+          "fixture": "production_architecture",
+          "width": 160,
+          "median_ms": 114.79823500849307,
+          "min_ms": 108.75163700256962,
+          "max_ms": 179.56159501045477,
+          "output_rows": 33,
+          "output_bytes": 12638,
+          "sha256": "8bc36ab930b30ab309b8ff160b190a06c854f3da1296e528b21064ca7ba4234b"
+        },
+        {
+          "fixture": "production_supervisor_state",
+          "width": 68,
+          "median_ms": 283.4560949995648,
+          "min_ms": 276.8839670025045,
+          "max_ms": 304.54742899746634,
+          "output_rows": 40,
+          "output_bytes": 11449,
+          "sha256": "c405e89f818c4dd4673b22f496a49195f40a73c8daade85754a7f3e575f864fb"
+        },
+        {
+          "fixture": "production_supervisor_state",
+          "width": 100,
+          "median_ms": 368.5840700054541,
+          "min_ms": 288.27192599419504,
+          "max_ms": 416.6774439945584,
+          "output_rows": 40,
+          "output_bytes": 11280,
+          "sha256": "a7828f651ad3d6fc917fee99a3bff59b4f8d25da8b57110efbe75d3d7eae2f52"
+        },
+        {
+          "fixture": "production_supervisor_state",
+          "width": 160,
+          "median_ms": 248.75081299978774,
+          "min_ms": 230.6800939986715,
+          "max_ms": 269.2787080013659,
+          "output_rows": 40,
+          "output_bytes": 11280,
+          "sha256": "a7828f651ad3d6fc917fee99a3bff59b4f8d25da8b57110efbe75d3d7eae2f52"
+        },
+        {
+          "fixture": "production_lease_race",
+          "width": 68,
+          "median_ms": 159.42713800177444,
+          "min_ms": 143.07722898956854,
+          "max_ms": 199.0606769977603,
+          "output_rows": 110,
+          "output_bytes": 41615,
+          "sha256": "c801c96f563e92a3b24bcd2bfb0dbf50dbcd916f4cf18ad61870762b9cb7b1f0"
+        },
+        {
+          "fixture": "production_lease_race",
+          "width": 100,
+          "median_ms": 173.80683199735358,
+          "min_ms": 154.16483199805953,
+          "max_ms": 201.90619499771856,
+          "output_rows": 89,
+          "output_bytes": 37429,
+          "sha256": "30f6d3164c401b5e2784a641589c9efd70065470f0f5e1a8ecfbd9fc9ec336eb"
+        },
+        {
+          "fixture": "production_lease_race",
+          "width": 160,
+          "median_ms": 26.902911995421164,
+          "min_ms": 25.841786991804838,
+          "max_ms": 28.66418199846521,
+          "output_rows": 71,
+          "output_bytes": 35429,
+          "sha256": "7eeff56889bc0a6db9c5812ca22a64250d49e2e6ab0d2c62d5a943f91e73e7d3"
+        }
+      ]
+    },
+    "final": {
+      "source_root": "/home/xffan2/.config/termaid/src",
+      "python": "3.11.4 (main, Jul 29 2026, 21:27:37) [GCC 13.3.0]",
+      "repeats": 7,
+      "measurements": [
+        {
+          "fixture": "production_architecture",
+          "width": 68,
+          "median_ms": 38.45076200377662,
+          "min_ms": 36.19934798916802,
+          "max_ms": 40.3190729994094,
+          "output_rows": 45,
+          "output_bytes": 15004,
+          "sha256": "1d9b281d0dcb5a139db4d0434bf586c544990623ce7cd222030193fd62aeaeb8"
+        },
+        {
+          "fixture": "production_architecture",
+          "width": 100,
+          "median_ms": 40.02149098960217,
+          "min_ms": 37.108226999407634,
+          "max_ms": 40.23400899313856,
+          "output_rows": 37,
+          "output_bytes": 12909,
+          "sha256": "992359f948619e410e180246a57725aae364961f42a8758c2fc2e3069c2f0129"
+        },
+        {
+          "fixture": "production_architecture",
+          "width": 160,
+          "median_ms": 44.443543010856956,
+          "min_ms": 43.32567600067705,
+          "max_ms": 47.44535200006794,
+          "output_rows": 33,
+          "output_bytes": 12638,
+          "sha256": "8bc36ab930b30ab309b8ff160b190a06c854f3da1296e528b21064ca7ba4234b"
+        },
+        {
+          "fixture": "production_supervisor_state",
+          "width": 68,
+          "median_ms": 110.80832500010729,
+          "min_ms": 107.07472800277174,
+          "max_ms": 114.47082099039108,
+          "output_rows": 40,
+          "output_bytes": 11449,
+          "sha256": "c405e89f818c4dd4673b22f496a49195f40a73c8daade85754a7f3e575f864fb"
+        },
+        {
+          "fixture": "production_supervisor_state",
+          "width": 100,
+          "median_ms": 121.14569799450692,
+          "min_ms": 117.63032599992584,
+          "max_ms": 125.66509899625089,
+          "output_rows": 40,
+          "output_bytes": 11280,
+          "sha256": "a7828f651ad3d6fc917fee99a3bff59b4f8d25da8b57110efbe75d3d7eae2f52"
+        },
+        {
+          "fixture": "production_supervisor_state",
+          "width": 160,
+          "median_ms": 123.44777899852488,
+          "min_ms": 119.71043598896358,
+          "max_ms": 135.70731799700297,
+          "output_rows": 40,
+          "output_bytes": 11280,
+          "sha256": "a7828f651ad3d6fc917fee99a3bff59b4f8d25da8b57110efbe75d3d7eae2f52"
+        },
+        {
+          "fixture": "production_lease_race",
+          "width": 68,
+          "median_ms": 98.97155899670906,
+          "min_ms": 93.3570100023644,
+          "max_ms": 102.04591100045945,
+          "output_rows": 110,
+          "output_bytes": 41615,
+          "sha256": "c801c96f563e92a3b24bcd2bfb0dbf50dbcd916f4cf18ad61870762b9cb7b1f0"
+        },
+        {
+          "fixture": "production_lease_race",
+          "width": 100,
+          "median_ms": 112.12329599948134,
+          "min_ms": 103.94197300774977,
+          "max_ms": 117.53778300771955,
+          "output_rows": 89,
+          "output_bytes": 37429,
+          "sha256": "30f6d3164c401b5e2784a641589c9efd70065470f0f5e1a8ecfbd9fc9ec336eb"
+        },
+        {
+          "fixture": "production_lease_race",
+          "width": 160,
+          "median_ms": 18.213907998870127,
+          "min_ms": 17.227386008016765,
+          "max_ms": 18.594748005853035,
+          "output_rows": 71,
+          "output_bytes": 35429,
+          "sha256": "7eeff56889bc0a6db9c5812ca22a64250d49e2e6ab0d2c62d5a943f91e73e7d3"
+        }
+      ]
+    }
+  },
+  "cold": {
+    "checkpoint": {
+      "source_root": "/tmp/termaid-perf-8960119/src",
+      "python": "3.11.4 (main, Jul 29 2026, 21:27:37) [GCC 13.3.0]",
+      "repeats": 5,
+      "cold": true,
+      "measurements": [
+        {
+          "fixture": "production_architecture",
+          "width": 68,
+          "median_ms": 264.3638680019649,
+          "min_ms": 223.93882300821133,
+          "max_ms": 281.7230200016638,
+          "output_rows": 45,
+          "output_bytes": 15004,
+          "sha256": "1d9b281d0dcb5a139db4d0434bf586c544990623ce7cd222030193fd62aeaeb8"
+        },
+        {
+          "fixture": "production_architecture",
+          "width": 100,
+          "median_ms": 286.99027800757904,
+          "min_ms": 257.9527549969498,
+          "max_ms": 302.91921700700186,
+          "output_rows": 37,
+          "output_bytes": 12909,
+          "sha256": "992359f948619e410e180246a57725aae364961f42a8758c2fc2e3069c2f0129"
+        },
+        {
+          "fixture": "production_architecture",
+          "width": 160,
+          "median_ms": 231.24231399560813,
+          "min_ms": 219.58591000293382,
+          "max_ms": 249.0689719998045,
+          "output_rows": 33,
+          "output_bytes": 12638,
+          "sha256": "8bc36ab930b30ab309b8ff160b190a06c854f3da1296e528b21064ca7ba4234b"
+        },
+        {
+          "fixture": "production_supervisor_state",
+          "width": 68,
+          "median_ms": 380.61807899794076,
+          "min_ms": 338.42745899164584,
+          "max_ms": 451.9978500029538,
+          "output_rows": 40,
+          "output_bytes": 11449,
+          "sha256": "c405e89f818c4dd4673b22f496a49195f40a73c8daade85754a7f3e575f864fb"
+        },
+        {
+          "fixture": "production_supervisor_state",
+          "width": 100,
+          "median_ms": 336.78342901112046,
+          "min_ms": 320.45070599997416,
+          "max_ms": 364.8440030083293,
+          "output_rows": 40,
+          "output_bytes": 11280,
+          "sha256": "a7828f651ad3d6fc917fee99a3bff59b4f8d25da8b57110efbe75d3d7eae2f52"
+        },
+        {
+          "fixture": "production_supervisor_state",
+          "width": 160,
+          "median_ms": 334.31387499149423,
+          "min_ms": 306.7107399983797,
+          "max_ms": 340.4739050019998,
+          "output_rows": 40,
+          "output_bytes": 11280,
+          "sha256": "a7828f651ad3d6fc917fee99a3bff59b4f8d25da8b57110efbe75d3d7eae2f52"
+        },
+        {
+          "fixture": "production_lease_race",
+          "width": 68,
+          "median_ms": 256.3477969961241,
+          "min_ms": 238.97913900145795,
+          "max_ms": 279.88764201290905,
+          "output_rows": 98,
+          "output_bytes": 36948,
+          "sha256": "4f394e5440a5325e4f7601b29afccacf56d30a1d1a311ff9c04f19f9520f1d95"
+        },
+        {
+          "fixture": "production_lease_race",
+          "width": 100,
+          "median_ms": 250.35194400697947,
+          "min_ms": 246.49797299935017,
+          "max_ms": 263.91267898725346,
+          "output_rows": 83,
+          "output_bytes": 35107,
+          "sha256": "ea0f27794c8041896db7f3e5f49cc3654312ddaaf9d5b7aede4af03bc9f16cb8"
+        },
+        {
+          "fixture": "production_lease_race",
+          "width": 160,
+          "median_ms": 205.20148500509094,
+          "min_ms": 198.75566399423406,
+          "max_ms": 223.53275599016342,
+          "output_rows": 71,
+          "output_bytes": 35955,
+          "sha256": "ba55c71d32b53bb0e18952697a3c0109a872ab5064dd7dc4aad869d606648189"
+        }
+      ]
+    },
+    "before": {
+      "source_root": "/tmp/termaid-perf-before/src",
+      "python": "3.11.4 (main, Jul 29 2026, 21:27:37) [GCC 13.3.0]",
+      "repeats": 5,
+      "cold": true,
+      "measurements": [
+        {
+          "fixture": "production_architecture",
+          "width": 68,
+          "median_ms": 248.34912600636017,
+          "min_ms": 231.72373400302604,
+          "max_ms": 262.1884569962276,
+          "output_rows": 45,
+          "output_bytes": 15004,
+          "sha256": "1d9b281d0dcb5a139db4d0434bf586c544990623ce7cd222030193fd62aeaeb8"
+        },
+        {
+          "fixture": "production_architecture",
+          "width": 100,
+          "median_ms": 254.369461996248,
+          "min_ms": 245.5409440008225,
+          "max_ms": 263.43135299975984,
+          "output_rows": 37,
+          "output_bytes": 12909,
+          "sha256": "992359f948619e410e180246a57725aae364961f42a8758c2fc2e3069c2f0129"
+        },
+        {
+          "fixture": "production_architecture",
+          "width": 160,
+          "median_ms": 238.59249999804888,
+          "min_ms": 233.23748901020736,
+          "max_ms": 256.01878900488373,
+          "output_rows": 33,
+          "output_bytes": 12638,
+          "sha256": "8bc36ab930b30ab309b8ff160b190a06c854f3da1296e528b21064ca7ba4234b"
+        },
+        {
+          "fixture": "production_supervisor_state",
+          "width": 68,
+          "median_ms": 491.56937400402967,
+          "min_ms": 451.8527619948145,
+          "max_ms": 518.5172929923283,
+          "output_rows": 40,
+          "output_bytes": 11449,
+          "sha256": "c405e89f818c4dd4673b22f496a49195f40a73c8daade85754a7f3e575f864fb"
+        },
+        {
+          "fixture": "production_supervisor_state",
+          "width": 100,
+          "median_ms": 480.4565679951338,
+          "min_ms": 436.90204300219193,
+          "max_ms": 495.4242670064559,
+          "output_rows": 40,
+          "output_bytes": 11280,
+          "sha256": "a7828f651ad3d6fc917fee99a3bff59b4f8d25da8b57110efbe75d3d7eae2f52"
+        },
+        {
+          "fixture": "production_supervisor_state",
+          "width": 160,
+          "median_ms": 411.02803200192284,
+          "min_ms": 408.405934998882,
+          "max_ms": 439.9718939966988,
+          "output_rows": 40,
+          "output_bytes": 11280,
+          "sha256": "a7828f651ad3d6fc917fee99a3bff59b4f8d25da8b57110efbe75d3d7eae2f52"
+        },
+        {
+          "fixture": "production_lease_race",
+          "width": 68,
+          "median_ms": 320.03504000022076,
+          "min_ms": 294.52599299838766,
+          "max_ms": 365.4872549959691,
+          "output_rows": 110,
+          "output_bytes": 41615,
+          "sha256": "c801c96f563e92a3b24bcd2bfb0dbf50dbcd916f4cf18ad61870762b9cb7b1f0"
+        },
+        {
+          "fixture": "production_lease_race",
+          "width": 100,
+          "median_ms": 301.5107410028577,
+          "min_ms": 293.676351007889,
+          "max_ms": 406.0274569928879,
+          "output_rows": 89,
+          "output_bytes": 37429,
+          "sha256": "30f6d3164c401b5e2784a641589c9efd70065470f0f5e1a8ecfbd9fc9ec336eb"
+        },
+        {
+          "fixture": "production_lease_race",
+          "width": 160,
+          "median_ms": 226.63286699389573,
+          "min_ms": 197.16915900062304,
+          "max_ms": 235.93315199832432,
+          "output_rows": 71,
+          "output_bytes": 35429,
+          "sha256": "7eeff56889bc0a6db9c5812ca22a64250d49e2e6ab0d2c62d5a943f91e73e7d3"
+        }
+      ]
+    },
+    "final": {
+      "source_root": "/home/xffan2/.config/termaid/src",
+      "python": "3.11.4 (main, Jul 29 2026, 21:27:37) [GCC 13.3.0]",
+      "repeats": 5,
+      "cold": true,
+      "measurements": [
+        {
+          "fixture": "production_architecture",
+          "width": 68,
+          "median_ms": 252.99678101146128,
+          "min_ms": 231.66865098755807,
+          "max_ms": 266.6326649923576,
+          "output_rows": 45,
+          "output_bytes": 15004,
+          "sha256": "1d9b281d0dcb5a139db4d0434bf586c544990623ce7cd222030193fd62aeaeb8"
+        },
+        {
+          "fixture": "production_architecture",
+          "width": 100,
+          "median_ms": 231.35804600315168,
+          "min_ms": 221.40000700892415,
+          "max_ms": 242.18948399357032,
+          "output_rows": 37,
+          "output_bytes": 12909,
+          "sha256": "992359f948619e410e180246a57725aae364961f42a8758c2fc2e3069c2f0129"
+        },
+        {
+          "fixture": "production_architecture",
+          "width": 160,
+          "median_ms": 242.85839298681822,
+          "min_ms": 233.16840500046965,
+          "max_ms": 264.99589599552564,
+          "output_rows": 33,
+          "output_bytes": 12638,
+          "sha256": "8bc36ab930b30ab309b8ff160b190a06c854f3da1296e528b21064ca7ba4234b"
+        },
+        {
+          "fixture": "production_supervisor_state",
+          "width": 68,
+          "median_ms": 295.86239899799693,
+          "min_ms": 270.7053560006898,
+          "max_ms": 328.49085600173566,
+          "output_rows": 40,
+          "output_bytes": 11449,
+          "sha256": "c405e89f818c4dd4673b22f496a49195f40a73c8daade85754a7f3e575f864fb"
+        },
+        {
+          "fixture": "production_supervisor_state",
+          "width": 100,
+          "median_ms": 287.3529199860059,
+          "min_ms": 277.86438500334043,
+          "max_ms": 293.6439409968443,
+          "output_rows": 40,
+          "output_bytes": 11280,
+          "sha256": "a7828f651ad3d6fc917fee99a3bff59b4f8d25da8b57110efbe75d3d7eae2f52"
+        },
+        {
+          "fixture": "production_supervisor_state",
+          "width": 160,
+          "median_ms": 288.0851130030351,
+          "min_ms": 285.7626430050004,
+          "max_ms": 321.9249200046761,
+          "output_rows": 40,
+          "output_bytes": 11280,
+          "sha256": "a7828f651ad3d6fc917fee99a3bff59b4f8d25da8b57110efbe75d3d7eae2f52"
+        },
+        {
+          "fixture": "production_lease_race",
+          "width": 68,
+          "median_ms": 281.36353100126144,
+          "min_ms": 277.49651898921,
+          "max_ms": 294.8235860094428,
+          "output_rows": 110,
+          "output_bytes": 41615,
+          "sha256": "c801c96f563e92a3b24bcd2bfb0dbf50dbcd916f4cf18ad61870762b9cb7b1f0"
+        },
+        {
+          "fixture": "production_lease_race",
+          "width": 100,
+          "median_ms": 253.8685929903295,
+          "min_ms": 250.04229698970448,
+          "max_ms": 295.18603000906296,
+          "output_rows": 89,
+          "output_bytes": 37429,
+          "sha256": "30f6d3164c401b5e2784a641589c9efd70065470f0f5e1a8ecfbd9fc9ec336eb"
+        },
+        {
+          "fixture": "production_lease_race",
+          "width": 160,
+          "median_ms": 193.07373798801564,
+          "min_ms": 183.74515901086852,
+          "max_ms": 213.12080200004857,
+          "output_rows": 71,
+          "output_bytes": 35429,
+          "sha256": "7eeff56889bc0a6db9c5812ca22a64250d49e2e6ab0d2c62d5a943f91e73e7d3"
+        }
+      ]
+    }
+  },
+  "warm_traced_peak_mib_at_width_100": {
+    "production_architecture": {
+      "checkpoint": 0.744,
+      "before": 0.753,
+      "final": 0.504
+    },
+    "production_supervisor_state": {
+      "checkpoint": 0.643,
+      "before": 0.647,
+      "final": 0.408
+    },
+    "production_lease_race": {
+      "checkpoint": 1.653,
+      "before": 1.73,
+      "final": 1.131
+    }
+  }
+}

@@ -500,7 +500,8 @@ borders as `subgraph` and scope hints as `subgraph_label` so editors can keep ra
 Disjoint flowchart edge labels can align on one row while retaining separation.
 During width fitting, node boxes and connection layout take priority over transition sentences.
 Return corridors have a bounded structural width; long labels do not set their width. The fitter
-prefers the largest node-label budget that fits. Labels use the existing `--width` budget and
+compares width and height limits, reference count, node-label budget, and output height.
+When references remain, it tries one layout with more routing space. Labels use the existing `--width` budget and
 wrap whole words into clear rectangles beside their paths, preferring balanced lines.
 With `--width`, labels use the available width before wrapping, extending beyond the node
 layout when needed. Without a width budget, they prefer existing diagram space. Return labels
@@ -514,12 +515,21 @@ Placement is best effort: short routes can retain endpoint heads; circle and cro
 always stay at their endpoints. The default remains `--arrow-position end`.
 These options preserve terminal text size and apply to the graph renderer, not sequence arrows.
 Sequence arrows leave a blank cell beside endpoint lifelines; self-loops reserve room before
-the next participant. Unrelated arrow crossings and unavoidable crossings through other lifelines use a small `x`
+the next participant. Self-loop reach is capped at 15% of the measured diagram width, with
+at least eight visible cells in each horizontal leg (plus lifeline clearance).
+This minimum takes priority in narrow diagrams. Labels can extend beyond the loop within their reserved
+clear region; longer text does not force the loop past its cap.
+Unrelated arrow crossings and unavoidable crossings through other lifelines use a small `x`
 in both Unicode and ASCII output.
 Scope headings cover only their own text area, preserving the other vertical lines on the row.
-After layout, message labels use the measured space between arrow endpoints rather than the
-participant-box wrapping limit. Labels stay within those endpoints; arrows do not add further
-line breaks. Punctuation boundaries help keep short endings with their preceding phrase.
+Message labels use a measured gap between participant lifelines, independently of the
+participant-box wrapping limit. An arrow spanning several participants can cross intermediate
+lifelines; its label wraps in one clear gap without erasing them. Label height is reserved before
+arrow rows are assigned. Punctuation boundaries help keep short endings with their preceding phrase.
+
+Graph and sequence labels are planned and checked before painting. Rendering these diagrams
+keeps the caller's original model unchanged, including across repeated renders at different widths.
+See [rendering architecture](docs/rendering.md) for layout contracts and validation.
 
 Width-fitted labels prefer whole words, then punctuation, identifier separators, and
 camel-case boundaries. For example, `metadata_shard[s].mutex` wraps before `.mutex`

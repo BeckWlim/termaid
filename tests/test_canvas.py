@@ -4,6 +4,19 @@ from __future__ import annotations
 from termaid.renderer.canvas import Canvas
 
 
+def test_styled_rows_preserve_wide_cells_and_snapshot_independence():
+    canvas = Canvas(5, 2)
+    canvas.put_text(0, 0, '界x', style='edge_label')
+    canvas.put_text(1, 1, '🗄', style='node')
+    snapshot = canvas.to_styled_pairs()
+    streamed_rows = list(canvas.iter_styled_rows())
+    assert streamed_rows == snapshot
+    assert streamed_rows[0][:3] == [('界', 'edge_label'), ('', 'edge_label'), ('x', 'edge_label')]
+    snapshot[0][0] = ('!', 'arrow')
+    assert canvas.get(0, 0) == '界'
+    assert streamed_rows[0][0] == ('界', 'edge_label')
+
+
 class TestWideCharBounds:
     def test_put_text_wide_char_below_canvas_does_not_crash(self):
         c = Canvas(10, 3)

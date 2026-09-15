@@ -4,6 +4,19 @@ from __future__ import annotations
 from termaid.utils import display_width, truncate_to_width, wrap_display_text
 
 
+class TestDisplayWidth:
+    def test_ascii_fast_path_preserves_existing_cell_measurement(self):
+        assert display_width('') == 0
+        assert display_width('CreateWithLease(master_view, A, lease A)') == 40
+        assert display_width(''.join(map(chr, range(128)))) == 128
+
+    def test_mixed_widths_remain_correct_after_many_distinct_characters(self):
+        assert display_width('ASCII界🗄') == 9
+        ideographs = ''.join(chr(0x4E00 + offset) for offset in range(2048))
+        assert display_width(ideographs) == 4096
+        assert display_width('ASCII界🗄') == 9
+
+
 class TestWrapDisplayText:
     def test_prefers_word_boundaries(self):
         assert wrap_display_text("alpha beta gamma", 10) == ["alpha beta", "gamma"]

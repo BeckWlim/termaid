@@ -7,9 +7,10 @@ and the correct junction character is derived from the combined directions.
 """
 from __future__ import annotations
 
-import unicodedata
+from collections.abc import Iterator
 
 from .charset import CharSet, UNICODE
+from ..utils import display_width
 
 
 # Direction bitfield constants
@@ -221,7 +222,7 @@ class Canvas:
                 self._style_grid[row][target_col] = style or "default"
             else:
                 self.put(row, target_col, ch, merge=False, style=style)
-            if unicodedata.east_asian_width(ch) in ("F", "W"):
+            if display_width(ch) == 2:
                 # Wide char occupies 2 columns; blank the shadow cell
                 self._blank_shadow_cell(row, target_col + 1, style)
                 offset += 2
@@ -234,7 +235,7 @@ class Canvas:
         for text, style in segments:
             for ch in text:
                 self.put(row, col + offset, ch, merge=False, style=style)
-                if unicodedata.east_asian_width(ch) in ("F", "W"):
+                if display_width(ch) == 2:
                     self._blank_shadow_cell(row, col + offset + 1, style)
                     offset += 2
                 else:
@@ -253,15 +254,14 @@ class Canvas:
             return self._style_grid[row][col]
         return "default"
 
+    def iter_styled_rows(self) -> Iterator[list[tuple[str, str]]]:
+        """Yield styled rows without allocating a second full canvas."""
+        for characters, styles in zip(self._grid, self._style_grid):
+            yield list(zip(characters, styles))
+
     def to_styled_pairs(self) -> list[list[tuple[str, str]]]:
-        """Return (char, style_key) pairs for each cell."""
-        result: list[list[tuple[str, str]]] = []
-        for r in range(self.height):
-            row_pairs: list[tuple[str, str]] = []
-            for c in range(self.width):
-                row_pairs.append((self._grid[r][c], self._style_grid[r][c]))
-            result.append(row_pairs)
-        return result
+        """Return an independent snapshot of (char, style_key) cell pairs."""
+        return list(self.iter_styled_rows())
 
     def draw_horizontal(self, row: int, col_start: int, col_end: int, ch: str, style: str = "") -> None:
         """Draw a horizontal line, setting LEFT|RIGHT directions on each cell."""

@@ -7,16 +7,18 @@ Drawing order (back to front):
 4. Edge corners
 5. Arrow heads
 6. T-junctions (where edges leave nodes)
-7. Edge labels
-8. Subgraph labels
+7. Subgraph labels and notes
+8. Planned edge labels
 """
 from __future__ import annotations
 
 from dataclasses import replace
+from copy import deepcopy
 
 from ..graph.model import ArrowType, Direction, EdgeStyle, Graph, GraphNote
 from ..graph.shapes import NodeShape
 from ..layout.grid import GridLayout, NodePlacement, compute_layout
+from ..layout.labels import LabelPlan, LabelSurface, TextPlacement, placement_is_clear
 from ..routing.router import AttachDir, RoutedEdge, route_edges
 from .canvas import Canvas, DOWN, LEFT, RIGHT, UP
 from ..utils import display_width, wrap_display_text
@@ -89,28 +91,29 @@ def render_graph_canvas(
     if not graph.node_order:
         return None
 
+    layout_graph = deepcopy(graph)
     cs = ASCII if use_ascii else UNICODE
 
     # Need to handle BT/RL by rendering as TB/LR then flipping
-    direction = graph.direction
+    direction = layout_graph.direction
     needs_v_flip = direction == Direction.BT
     needs_h_flip = direction == Direction.RL
 
     # Normalize direction for layout
     if needs_v_flip:
-        graph.direction = Direction.TB
+        layout_graph.direction = Direction.TB
     elif needs_h_flip:
-        graph.direction = Direction.LR
+        layout_graph.direction = Direction.LR
 
     # Layout
     layout = compute_layout(
-        graph, padding_x, padding_y, gap,
+        layout_graph, padding_x, padding_y, gap,
         max_label_width=max_label_width,
         uniform_nodes=uniform_nodes,
     )
 
     # Route edges
-    routed = route_edges(graph, layout)
+    routed = route_edges(layout_graph, layout)
 
     # Create canvas (add some margin)
     # Account for edge paths that may extend beyond node boundaries
@@ -127,30 +130,35 @@ def render_graph_canvas(
     _draw_subgraph_borders(canvas, layout, cs)
 
     # 2. Draw nodes
-    _draw_nodes(canvas, graph, layout, cs)
+    _draw_nodes(canvas, layout_graph, layout, cs)
 
-    # 3. Draw edges
-    label_references = _draw_edges(
-        canvas, graph, layout, routed, cs,
+    # 3. Draw route geometry. Plan labels after notes and frame headings exist.
+    _draw_edges(
+        canvas, layout_graph, layout, routed, cs,
         rounded_edges=rounded_edges,
         inline_edge_labels=inline_edge_labels,
         arrow_position=arrow_position,
         max_width=max_width,
+        defer_labels=True,
     )
 
     # 4. Draw subgraph labels (on top of everything else)
     _draw_subgraph_labels(canvas, layout, cs)
 
     # 5. Draw notes (on top of everything else)
-    _draw_notes(canvas, graph, layout, cs)
+    _draw_notes(canvas, layout_graph, layout, cs)
+
+    label_references = _draw_edge_labels(
+        canvas, routed, cs, inline_edge_labels=inline_edge_labels, max_width=max_width,
+    )
 
     # Flip if needed
     if needs_v_flip:
         canvas.flip_vertical()
-        graph.direction = Direction.BT
+        layout_graph.direction = Direction.BT
     elif needs_h_flip:
         canvas.flip_horizontal()
-        graph.direction = Direction.RL
+        layout_graph.direction = Direction.RL
 
     # References are added after direction flips, always below the diagram.
     # Full label text stays available without changing node layout or routes.
@@ -273,6 +281,7 @@ def _draw_edges(
     inline_edge_labels: bool = False,
     arrow_position: str = "end",
     max_width: int | None = None,
+    defer_labels: bool = False,
 ) -> list[tuple[str, str]]:
     """Draw all edge lines, corners, arrows, and labels.
 
@@ -379,24 +388,38 @@ def _draw_edges(
     if arrow_position == "middle":
         _draw_middle_arrows(canvas, graph, routed, cs)
 
+    if defer_labels:
+        return []
+    return _draw_edge_labels(canvas, routed, cs, inline_edge_labels=inline_edge_labels,
+                             max_width=max_width)
+
+
+def _draw_edge_labels(
+    canvas: Canvas, routed: list[RoutedEdge], cs: CharSet,
+    *, inline_edge_labels: bool = False, max_width: int | None = None,
+) -> list[tuple[str, str]]:
+    """Measure, reserve, and validate labels against the complete geometry."""
+    label_plan = LabelPlan(canvas, max_width)
     label_area_width = canvas.width
     # Real labels get first choice of space. Failure markers must not crowd
     # out another edge's complete label.
     placed_labels: list[tuple[int, int, int]] = []
     failed_routes: list[RoutedEdge] = []
     for route in routed:
+        label_plan.owner = f"edge:{route.index}"
         if route.label and not _draw_edge_label(
-            canvas, route, placed_labels,
+            label_plan, route, placed_labels,
             inline=inline_edge_labels, use_ascii=cs is ASCII,
             max_width=max_width, preferred_width=label_area_width,
         ):
             failed_routes.append(route)
     label_references: list[tuple[str, str]] = []
     for reference_number, route in enumerate(sorted(failed_routes, key=lambda item: item.index), start=1):
+        label_plan.owner = f"edge:{route.index}:reference"
         reference = f"[{reference_number}]"
         marker_route = replace(route, label=reference)
         marker_placed = _draw_edge_label(
-            canvas, marker_route, placed_labels, use_ascii=cs is ASCII, max_width=max_width,
+            label_plan, marker_route, placed_labels, use_ascii=cs is ASCII, max_width=max_width,
         )
         needs_edge_identity = not marker_placed
         if not marker_placed:
@@ -411,13 +434,14 @@ def _draw_edges(
                 if max(abs(row_offset), abs(col_offset)) == radius
             )
             marker_placed = any(
-                _try_place_label(canvas, row, col, reference, placed_labels, max_width=max_width)
+                _try_place_label(label_plan, row, col, reference, placed_labels, max_width=max_width)
                 for row, col in reference_positions
             )
         # If even the reference cannot fit safely, identify its edge in the
         # list instead of overwriting a connector or dropping the label.
         label_text = f"{route.edge.source} to {route.edge.target}: {route.label}" if needs_edge_identity else route.label
         label_references.append((reference, label_text))
+    label_plan.paint(canvas)
     return label_references
 
 
@@ -693,7 +717,7 @@ def _label_overlaps(
 
 
 def _place_label(
-    canvas: Canvas,
+    canvas: LabelSurface,
     row: int, col: int, label: str,
     placed: list[tuple[int, int, int]],
     *, inline: bool = False,
@@ -703,14 +727,9 @@ def _place_label(
     col_end = col + display_width(label)
     if col < 0 or row < 0 or (max_width is not None and col_end > max_width):
         return False
-    for target_col in range(col, col_end):
-        if canvas.is_protected(row, target_col):
-            return False
-        existing_character = canvas.get(row, target_col)
-        if existing_character == " ":
-            continue
-        if not inline or existing_character not in "─┄━│┆┃-|":
-            return False
+    placement = TextPlacement("edge-label", row, col, (label,), inline=inline)
+    if not placement_is_clear(canvas, placement, max_width=max_width):
+        return False
     # Ensure canvas is large enough for the label
     needed_w = col_end + 1
     needed_h = row + 1
@@ -722,7 +741,7 @@ def _place_label(
 
 
 def _try_place_label(
-    canvas: Canvas,
+    canvas: LabelSurface,
     row: int, col: int, label: str,
     placed: list[tuple[int, int, int]],
     *, inline: bool = False,
@@ -758,7 +777,7 @@ def _find_last_turn(path: list[tuple[int, int]]) -> int:
 
 
 def _try_place_on_segment(
-    canvas: Canvas, x1: int, y1: int, x2: int, y2: int,
+    canvas: LabelSurface, x1: int, y1: int, x2: int, y2: int,
     label: str, placed_labels: list[tuple[int, int, int]],
     prev_point: tuple[int, int] | None = None,
     prefer_left: bool = False,
@@ -873,7 +892,7 @@ def _try_place_on_segment(
 
 
 def _draw_edge_label(
-    canvas: Canvas, re: RoutedEdge,
+    canvas: LabelSurface, re: RoutedEdge,
     placed_labels: list[tuple[int, int, int]],
     *, inline: bool = False, use_ascii: bool = False,
     max_width: int | None = None, preferred_width: int | None = None,
@@ -896,7 +915,7 @@ def _draw_edge_label(
 
 
 def _draw_single_line_edge_label(
-    canvas: Canvas, re: RoutedEdge,
+    canvas: LabelSurface, re: RoutedEdge,
     placed_labels: list[tuple[int, int, int]],
     *,
     inline: bool = False,
@@ -999,7 +1018,7 @@ def _draw_single_line_edge_label(
 
 
 def _draw_wrapped_edge_label(
-    canvas: Canvas, route: RoutedEdge,
+    canvas: LabelSurface, route: RoutedEdge,
     placed_labels: list[tuple[int, int, int]],
     *, max_width: int | None = None,
 ) -> bool:
@@ -1097,3 +1116,6 @@ def _draw_notes(canvas: Canvas, graph: Graph, layout: GridLayout, cs: CharSet) -
             canvas.resize(max(canvas.width, needed_w), max(canvas.height, needed_h))
 
         draw_rectangle(canvas, note_x, note_y, note_width, note_height, note.text, cs, style="node")
+        for row in range(note_y, note_y + note_height):
+            for col in range(note_x, note_x + note_width):
+                canvas.protect(row, col)

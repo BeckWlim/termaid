@@ -1,0 +1,35 @@
+sequenceDiagram
+    participant A as Master A
+    participant B as Master B
+    participant C as Master C
+    participant E as etcd
+
+    A->>A: start admin server and enter standby
+    B->>B: start admin server and enter standby
+    C->>C: start admin server and enter standby
+    A->>E: connect and Get(master_view)
+    B->>E: connect and Get(master_view)
+    C->>E: connect and Get(master_view)
+    E-->>A: empty view
+    E-->>B: empty view
+    E-->>C: empty view
+    A->>E: grant lease A
+    B->>E: grant lease B
+    C->>E: grant lease C
+    A->>E: CreateWithLease(master_view, A, lease A)
+    B->>E: CreateWithLease(master_view, B, lease B)
+    C->>E: CreateWithLease(master_view, C, lease C)
+    E-->>A: created with view revision
+    E-->>B: transaction failed: key exists
+    E-->>C: transaction failed: key exists
+    B->>E: revoke lease B and read current view
+    C->>E: revoke lease C and read current view
+    E-->>B: Master A view
+    E-->>C: Master A view
+    B->>B: enter standby and wait for view change
+    C->>C: enter standby and wait for view change
+    A->>A: promote standby and export state
+    A->>E: start lease keepalive
+    A->>A: complete leader warmup
+    A->>A: restore state and start RPC service
+    A->>A: publish service availability

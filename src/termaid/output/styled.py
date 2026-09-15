@@ -43,7 +43,7 @@ def serialize_canvas(canvas: Canvas | None) -> dict[str, Any]:
     if canvas is None:
         return {"version": 1, "lines": []}
     lines: list[list[dict[str, str]]] = []
-    for raw_row in canvas.to_styled_pairs():
+    for raw_row in canvas.iter_styled_rows():
         last_cell = len(raw_row)
         while last_cell > 0 and raw_row[last_cell - 1][0] in ("", " "):
             last_cell -= 1

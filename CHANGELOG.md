@@ -2,7 +2,15 @@
 
 ## Unreleased
 
+### Performance
+- Cache bounded character-width classifications, reuse immutable label measurements, and stream styled canvas rows without constructing a second full matrix. Rendering output is unchanged.
+
 ### Fixes
+- Sequence self-call loops have a proportional width cap independent of their label length; labels retain their clear space beside the lifeline.
+- Sequence message labels wrap between participant lifelines without erasing intermediate lines, including lease-race messages spanning several participants.
+- Graph and sequence labels use a shared reservation and validation layer before painting; repeated renders preserve the caller's original labels and models.
+- Width fitting compares reference count and height as well as node-label budgets, with one bounded spacing retry for graph label failures.
+- Canvas text placement uses the same CJK/emoji cell widths as layout measurement.
 - Sequence: `par`, `alt`, and other scope frames follow enclosed messages, notes, and branches; nested frames expand around child scopes instead of crossing lifelines. Long scope labels wrap during width fitting and remain inside their borders.
 
 ## 0.8.0 (2026-07-29)

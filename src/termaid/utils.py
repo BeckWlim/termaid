@@ -2,8 +2,10 @@
 from __future__ import annotations
 
 import unicodedata
+from functools import lru_cache
 
 
+@lru_cache(maxsize=1024)
 def _is_wide(ch: str) -> bool:
     """Return True if *ch* occupies 2 terminal columns."""
     if unicodedata.east_asian_width(ch) in ("F", "W"):
@@ -26,10 +28,12 @@ def display_width(text: str) -> int:
     columns; everything else occupies 1.
     Uses only the stdlib ``unicodedata`` module.
     """
-    w = 0
-    for ch in text:
-        w += 2 if _is_wide(ch) else 1
-    return w
+    # Most identifiers and labels are ASCII. Avoid classifying each character
+    # in those strings. Cache only single-character classifications, keeping
+    # memory bounded without retaining diagram text between renders.
+    if text.isascii():
+        return len(text)
+    return len(text) + sum(map(_is_wide, text))
 
 
 def _text_break(text: str, cell_limit_end: int) -> int:
