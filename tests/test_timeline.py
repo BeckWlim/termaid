@@ -2,7 +2,7 @@
 from __future__ import annotations
 
 from termaid import render
-from termaid.parser.timeline import parse_timeline
+from termaid.parser.timelines import parse_timeline
 
 
 class TestTimelineParser:

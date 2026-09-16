@@ -4,7 +4,7 @@ from __future__ import annotations
 from datetime import date
 
 from termaid import render
-from termaid.parser.gantt import parse_gantt
+from termaid.parser.timelines import parse_gantt
 
 
 class TestGanttParser:
@@ -62,6 +62,17 @@ class TestGanttParser:
         )
         assert d.sections[0].tasks[0].end == date(2024, 1, 31)
         assert d.sections[0].tasks[1].end == date(2024, 1, 15)
+
+    def test_date_and_duration_normalization(self):
+        diagram = parse_gantt(
+            "gantt\n"
+            "  dateFormat DD-MM-YYYY\n"
+            "  section Build\n"
+            "    Design : task1,  01-02-2024 ,  2 WEEKS \n"
+        )
+        task = diagram.sections[0].tasks[0]
+        assert task.start == date(2024, 2, 1)
+        assert task.end == date(2024, 2, 15)
 
     def test_today_marker_off(self):
         d = parse_gantt(

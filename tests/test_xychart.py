@@ -2,7 +2,7 @@
 from __future__ import annotations
 
 from termaid import render
-from termaid.parser.xychart import parse_xychart
+from termaid.parser.charts import parse_xychart
 
 
 class TestXYChartParser:

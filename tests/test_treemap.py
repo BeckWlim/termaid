@@ -2,7 +2,7 @@
 from __future__ import annotations
 
 from termaid import render
-from termaid.parser.treemap import parse_treemap
+from termaid.parser.trees import parse_treemap
 
 
 # ── Parser tests ──────────────────────────────────────────────────────────────

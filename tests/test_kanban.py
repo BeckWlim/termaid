@@ -2,7 +2,7 @@
 from __future__ import annotations
 
 from termaid import render
-from termaid.parser.kanban import parse_kanban
+from termaid.parser.boards import parse_kanban
 
 
 class TestKanbanParser:
@@ -85,3 +85,19 @@ class TestKanbanBracketIdsWithMetadata:
         card = kb.columns[0].cards[0]
         assert card.title == "Research vector DB options"
         assert card.metadata == "@alice"
+
+    def test_metadata_does_not_leak_into_following_cards_or_columns(self):
+        diagram = parse_kanban(
+            "kanban\n"
+            "  todo[To Do]\n"
+            "    docs[Write docs] @alice\n"
+            "    tests[Add tests]\n"
+            "  done[Done]\n"
+            "    release[Ship release] @bob"
+        )
+        assert [column.title for column in diagram.columns] == ["To Do", "Done"]
+        assert [
+            (card.title, card.metadata)
+            for column in diagram.columns
+            for card in column.cards
+        ] == [("Write docs", "@alice"), ("Add tests", ""), ("Ship release", "@bob")]

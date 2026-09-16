@@ -2,7 +2,7 @@
 from __future__ import annotations
 
 from termaid import render
-from termaid.parser.journey import parse_journey
+from termaid.parser.boards import parse_journey
 
 
 class TestJourneyParser:

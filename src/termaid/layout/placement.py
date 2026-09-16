@@ -122,6 +122,7 @@ def reserve_return_margin(graph: Graph, layout: GridLayout, max_label_width: int
     horizontal = graph.direction.normalized().is_horizontal
     first_position = min(placement.grid.row if horizontal else placement.grid.col
                          for placement in layout.placements.values())
+    edge_pairs = {(edge.source, edge.target) for edge in graph.edges}
     return_labels: list[str] = []
     for edge in graph.edges:
         source = layout.placements.get(edge.source)
@@ -133,6 +134,15 @@ def reserve_return_margin(graph: Graph, layout: GridLayout, max_label_width: int
         source_layer = source.grid.col if horizontal else source.grid.row
         target_layer = target.grid.col if horizontal else target.grid.row
         if source_position == target_position == first_position and target_layer < source_layer:
+            # Reciprocal neighbours can use separate facing ports. Reserve
+            # an outer lane only when an intervening node blocks that direct
+            # corridor, or the return has no forward counterpart.
+            if (edge.target, edge.source) in edge_pairs and not any(
+                (placement.grid.row if horizontal else placement.grid.col) == first_position
+                and target_layer < (placement.grid.col if horizontal else placement.grid.row) < source_layer
+                for placement in layout.placements.values()
+            ):
+                continue
             return_labels.append(edge.label)
     if not return_labels:
         return
@@ -217,6 +227,63 @@ def normalize_sizes(
             target = min(max_h, MAX_NORMALIZED_HEIGHT)
             for r in rows:
                 layout.row_heights[r] = max(layout.row_heights.get(r, 1), target)
+
+
+def fit_vertical_node_columns(
+    graph: Graph, layout: GridLayout, original_labels: dict[str, str],
+    padding_x: int, padding_y: int, max_label_width: int,
+) -> None:
+    """Fit measured node columns before routing a constrained vertical graph.
+
+    Shrink the widest columns first, keeping gaps and return lanes intact.
+    Rewrap from source labels so provisional line breaks do not accumulate.
+    This makes the single vertical reflow attempt respect its terminal width.
+    """
+    if (layout.width_budget is None or graph.direction.normalized().is_horizontal
+            or graph.subgraphs or graph.grid_positions or not layout.placements):
+        return
+    node_columns = {placement.grid.col for placement in layout.placements.values()}
+    last_border = max(node_columns) + 1
+    measured_width = sum(layout.col_widths.get(column, 1) for column in range(last_border + 1))
+    excess = max(0, measured_width + 2 - layout.width_budget)
+    if not excess:
+        return
+    original_widths = {column: layout.col_widths[column] for column in node_columns}
+    # Preserve the space already required for distinct endpoint ports.
+    port_counts: dict[tuple[str, str], int] = {}
+    for edge in graph.edges:
+        if not edge.is_self_reference:
+            pair = (min(edge.source, edge.target), max(edge.source, edge.target))
+            port_counts[pair] = port_counts.get(pair, 0) + 1
+    minimum_widths = {column: max(3, padding_x + 1) for column in node_columns}
+    for (source_id, target_id), count in port_counts.items():
+        for node_id in (source_id, target_id):
+            placement = layout.placements.get(node_id)
+            if placement is not None:
+                minimum_widths[placement.grid.col] = max(minimum_widths[placement.grid.col], (count - 1) * 4 + 1)
+    while excess:
+        reducible = [column for column in node_columns if layout.col_widths[column] > minimum_widths[column]]
+        if not reducible:
+            break
+        widest = max(reducible, key=lambda column: (layout.col_widths[column], -column))
+        layout.col_widths[widest] -= 1
+        excess -= 1
+    for node_id, placement in layout.placements.items():
+        if layout.col_widths[placement.grid.col] == original_widths[placement.grid.col]:
+            continue
+        node = graph.nodes[node_id]
+        if node.shape == NodeShape.JUNCTION:
+            continue
+        text_width = min(max_label_width, max(1, layout.col_widths[placement.grid.col] - padding_x))
+        source_lines = original_labels[node_id].replace('\\n', '\n').split('\n')
+        wrapped_lines = [wrapped for line in source_lines
+                         for wrapped in wrap_display_text(line, text_width, hard_break=True)]
+        node.label = '\\n'.join(wrapped_lines)
+        if wrapped_lines != source_lines:
+            node.label_segments = None
+        layout.row_heights[placement.grid.row] = max(
+            layout.row_heights[placement.grid.row], len(wrapped_lines) + padding_y,
+        )
 
 
 def compute_sizes(

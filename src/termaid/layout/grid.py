@@ -22,8 +22,7 @@ Submodules
 ----------
 - ``layers``      -- layer assignment, ordering, crossing analysis
 - ``placement``   -- node placement and cell sizing
-- ``subgraphs``   -- subgraph border expansion and bounding boxes
-- ``coordinates`` -- grid-to-draw conversion, negative-bounds adjustment
+- ``geometry``    -- subgraph bounds and grid-to-draw coordinate conversion
 """
 from __future__ import annotations
 
@@ -190,9 +189,16 @@ def compute_layout(
         order_layers,
         separate_subgraph_layers,
     )
-    from .placement import allocate_label_slack, place_nodes, compute_sizes, normalize_sizes, reserve_return_margin
-    from .subgraphs import expand_gaps_for_subgraphs, compute_subgraph_bounds
-    from .coordinates import compute_draw_coords, adjust_for_negative_bounds
+    from .placement import (
+        allocate_label_slack, place_nodes, compute_sizes, normalize_sizes,
+        reserve_return_margin, fit_vertical_node_columns,
+    )
+    from .geometry import (
+        adjust_for_negative_bounds,
+        compute_draw_coords,
+        compute_subgraph_bounds,
+        expand_gaps_for_subgraphs,
+    )
 
     layout = GridLayout(width_budget=max_width)
     direction = graph.direction.normalized()
@@ -232,6 +238,7 @@ def compute_layout(
     reserve_return_margin(graph, layout, max_label_width=max_label_width)
 
     # Step 4: Compute column widths and row heights (with word wrapping)
+    original_node_labels = {node_id: node.label for node_id, node in graph.nodes.items()}
     compute_sizes(
         graph, layout, padding_x, padding_y, effective_gap,
         max_label_width=max_label_width,
@@ -239,6 +246,8 @@ def compute_layout(
 
     # Step 4b: Normalize sizes (per-layer, capped)
     normalize_sizes(graph, layout, uniform_nodes=uniform_nodes)
+    if max_label_width is not None and not uniform_nodes:
+        fit_vertical_node_columns(graph, layout, original_node_labels, padding_x, padding_y, max_label_width)
 
     # Step 5: Expand gaps for subgraph borders and labels
     expand_gaps_for_subgraphs(graph, layout, direction)

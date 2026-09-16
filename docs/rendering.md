@@ -10,6 +10,12 @@ The CLI also fits and validates `DiagramPlan` candidates directly. Text, Rich,
 and styled JSON share the same candidate sequence, and only the selected plan
 is serialized. Color and JSON chunk construction do not run for rejected fits.
 
+The source keeps parsing, layout, and rendering as separate responsibilities.
+Small diagram implementations are grouped into `charts`, `trees`, `boards`, and
+`timelines` modules within `model/`, `parser/`, and `renderer/`. Subgraph bounds
+and drawing-coordinate conversion live together in `layout/geometry.py`.
+See the [source map](../CONTRIBUTING.md#architecture) for where to start reading.
+
 ## Pipeline
 
 1. Parse source into the existing diagram model.
@@ -70,6 +76,8 @@ Identical declarations can share geometry without removing model edges.
    bidirectional edges with matching endpoint types, may share a bus. Adjacent
    ungrouped siblings reserve a bus lane rather than one lane per destination.
    At least separate turn and approach cells remain available in compact output.
+   Reciprocal nodes with a clear corridor can use facing ports without an outer
+   return margin. Returns around intervening nodes keep their reserved lane.
 5. **Choose routes.** All orientations consider preplanned sibling buses and
    congestion when comparing node faces. Opposing and unrelated collinear
    traffic cost more. Node borders, group headings, and foreign frames constrain
@@ -167,7 +175,11 @@ vertical and horizontal segments. Numbered references remain the fallback.
 In `wrap` mode, an infeasible horizontal layout reports width overflow instead
 of forcing identifiers into arbitrary fragments; `--strict-width` rejects it.
 The optional vertical `reflow` attempt uses the available text width instead of
-a fixed five-character limit.
+a fixed five-character limit. For ungrouped graphs with ordinary node sizing,
+measured columns are narrowed before routing when they exceed that width.
+Labels wrap from their source text while routing gaps and endpoint-port space
+remain reserved. Compound, explicitly positioned, and uniform-node layouts keep
+their existing sizing policies.
 
 Performance and historical width-allocation measurements live in
 [performance.md](performance.md) and [benchmarks/results](../benchmarks/results/).

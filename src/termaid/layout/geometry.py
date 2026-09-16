@@ -1,20 +1,13 @@
-"""Subgraph layout handling for the layout engine.
-
-Manages gap expansion for subgraph borders and labels,
-and computes subgraph bounding boxes after node placement.
-"""
+"""Subgraph spacing, bounds, and grid-to-drawing coordinate conversion."""
 from __future__ import annotations
 
 from ..graph.model import Direction, Graph, Subgraph
 from ..utils import display_width
-from .grid import (
-    SG_BORDER_PAD,
-    SG_GAP_PER_LEVEL,
-    SG_LABEL_HEIGHT,
-    GridLayout,
-    SubgraphBounds,
-)
+from .grid import SG_BORDER_PAD, SG_GAP_PER_LEVEL, SG_LABEL_HEIGHT, GridLayout, SubgraphBounds
 
+
+# Subgraph spacing and bounds
+# ------------------------------------------------------------------------
 
 def expand_gaps_for_subgraphs(
     graph: Graph, layout: GridLayout, direction: Direction,
@@ -180,3 +173,49 @@ def _gather_all_nodes(sg: Subgraph, result: set[str]) -> None:
     result.update(sg.node_ids)
     for child in sg.children:
         _gather_all_nodes(child, result)
+
+
+# Drawing coordinates
+# ------------------------------------------------------------------------
+
+def compute_draw_coords(layout: GridLayout) -> None:
+    """Convert grid positions to drawing coordinates."""
+    for placement in layout.placements.values():
+        gc = placement.grid
+        # Top-left of the 3x3 block
+        x, y = layout.grid_to_draw(gc.col - 1, gc.row - 1)
+        w = sum(layout.col_widths.get(gc.col + dc, 1) for dc in range(-1, 2))
+        h = sum(layout.row_heights.get(gc.row + dr, 1) for dr in range(-1, 2))
+        placement.draw_x = x
+        placement.draw_y = y
+        placement.draw_width = w
+        placement.draw_height = h
+
+
+def adjust_for_negative_bounds(layout: GridLayout) -> None:
+    """Shift all coordinates if subgraph bounds extend into negative space."""
+    if not layout.subgraph_bounds:
+        return
+
+    min_x = 0
+    min_y = 0
+    for sb in layout.subgraph_bounds:
+        min_x = min(min_x, sb.x)
+        min_y = min(min_y, sb.y)
+
+    if min_x >= 0 and min_y >= 0:
+        return
+
+    dx = -min_x + 1 if min_x < 0 else 0
+    dy = -min_y + 1 if min_y < 0 else 0
+
+    for p in layout.placements.values():
+        p.draw_x += dx
+        p.draw_y += dy
+
+    for sb in layout.subgraph_bounds:
+        sb.x += dx
+        sb.y += dy
+
+    layout.offset_x += dx
+    layout.offset_y += dy

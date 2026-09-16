@@ -2,7 +2,7 @@
 from __future__ import annotations
 
 from termaid import render
-from termaid.parser.quadrant import parse_quadrant
+from termaid.parser.charts import parse_quadrant
 
 
 class TestQuadrantParser:

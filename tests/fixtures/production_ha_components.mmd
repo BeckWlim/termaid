@@ -1,0 +1,25 @@
+flowchart LR
+    Client[Store client] -->|read leader view| Coord[LeaderCoordinator]
+    Supervisor[MasterServiceSupervisor] --> Coord
+    Coord --> Backend[(etcd / Redis / K8s Lease)]
+
+    Supervisor --> StandbyCtl[StandbyController]
+    StandbyCtl --> Hot[HotStandbyService]
+    Hot --> Reader[OpLogBatchStandbyReader]
+    Reader --> BatchStore[OpLogBatchStorage]
+    BatchStore --> KV[(etcd)]
+    Reader --> Applier[OpLogApplier]
+    Applier --> StandbyMeta[StandbyMetadataStore]
+    Applier --> SegmentRegistry[StandbySegmentRegistry]
+
+    Supervisor -->|after election and promotion| RPC[WrappedMasterService]
+    RPC --> Master[MasterService]
+    Master --> Writer[OrderedOpLogWriter]
+    Writer --> BatchStore
+
+    SnapProvider[SnapshotProvider] --> Hot
+    Catalog[(snapshot catalog)] --> SnapProvider
+    ObjectStore[(local or S3 object store)] --> SnapProvider
+
+    Coord -->|new MasterView| Client
+    Client -->|RPC only when serving| RPC

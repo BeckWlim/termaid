@@ -2,7 +2,7 @@
 from __future__ import annotations
 
 from termaid import render
-from termaid.parser.piechart import parse_pie_chart
+from termaid.parser.charts import parse_pie_chart
 
 
 # ── Parser tests ──────────────────────────────────────────────────────────────

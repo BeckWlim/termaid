@@ -156,8 +156,8 @@ def plan(
         from ..renderer.gitgraph import render_git_graph
         canvas = render_git_graph(parse_git_graph(text), use_ascii=use_ascii)
     elif text.startswith("gantt"):
-        from ..parser.gantt import parse_gantt
-        from ..renderer.gantt import render_gantt
+        from ..parser.timelines import parse_gantt
+        from ..renderer.timelines import render_gantt
         canvas = render_gantt(parse_gantt(text), use_ascii=use_ascii)
     elif text.startswith("architecture"):
         from ..parser.architecture import parse_architecture
@@ -175,16 +175,16 @@ def plan(
             max_width=max_width,
         )
     elif text.startswith("pie"):
-        from ..parser.piechart import parse_pie_chart
-        from ..renderer.piechart import render_pie_chart
+        from ..parser.charts import parse_pie_chart
+        from ..renderer.charts import render_pie_chart
         canvas = render_pie_chart(parse_pie_chart(text), use_ascii=use_ascii)
     elif text.startswith("treemap"):
-        from ..parser.treemap import parse_treemap
-        from ..renderer.treemap import render_treemap
+        from ..parser.trees import parse_treemap
+        from ..renderer.trees import render_treemap
         canvas = render_treemap(parse_treemap(text), use_ascii=use_ascii)
     elif text.startswith("mindmap"):
-        from ..parser.mindmap import parse_mindmap
-        from ..renderer.mindmap import render_mindmap
+        from ..parser.trees import parse_mindmap
+        from ..renderer.trees import render_mindmap
         canvas = render_mindmap(
             parse_mindmap(text), use_ascii=use_ascii, rounded=rounded_edges
         )
@@ -201,14 +201,14 @@ def plan(
             **packet_extra,
         )
     elif text.startswith("xychart"):
-        from ..parser.xychart import parse_xychart
-        from ..renderer.xychart import render_xychart
+        from ..parser.charts import parse_xychart
+        from ..renderer.charts import render_xychart
         canvas = render_xychart(
             parse_xychart(text), use_ascii=use_ascii, rounded=rounded_edges
         )
     elif text.startswith("journey"):
-        from ..parser.journey import parse_journey
-        from ..renderer.journey import render_journey
+        from ..parser.boards import parse_journey
+        from ..renderer.boards import render_journey
         canvas = render_journey(
             parse_journey(text),
             use_ascii=use_ascii,
@@ -216,18 +216,18 @@ def plan(
             **extra,
         )
     elif text.startswith("timeline"):
-        from ..parser.timeline import parse_timeline
-        from ..renderer.timeline import render_timeline
+        from ..parser.timelines import parse_timeline
+        from ..renderer.timelines import render_timeline
         canvas = render_timeline(parse_timeline(text), use_ascii=use_ascii)
     elif text.startswith("kanban"):
-        from ..parser.kanban import parse_kanban
-        from ..renderer.kanban import render_kanban
+        from ..parser.boards import parse_kanban
+        from ..renderer.boards import render_kanban
         canvas = render_kanban(
             parse_kanban(text), use_ascii=use_ascii, **extra
         )
     elif text.startswith("quadrantChart"):
-        from ..parser.quadrant import parse_quadrant
-        from ..renderer.quadrant import render_quadrant
+        from ..parser.charts import parse_quadrant
+        from ..renderer.charts import render_quadrant
         canvas = render_quadrant(parse_quadrant(text), use_ascii=use_ascii)
     else:
         graph = parse(text)

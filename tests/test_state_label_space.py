@@ -61,10 +61,10 @@ def test_fitted_node_layout_does_not_depend_on_transition_sentence_length():
 def test_spare_width_separates_opposing_ports_without_stretching_simple_chains(reciprocal):
     source = 'flowchart TB\nA -->|inspect current view| B\nB --> C'
     graph = parse(source + ('\nB -->|another leader exists| A' if reciprocal else ''))
-    narrow = compute_layout(graph, padding_x=1, padding_y=0, gap=2, max_label_width=20, max_width=50)
+    narrow = compute_layout(graph, padding_x=1, padding_y=0, gap=2, max_label_width=20, max_width=30)
     wide = compute_layout(graph, padding_x=1, padding_y=0, gap=2, max_label_width=20, max_width=120)
     wider = compute_layout(graph, padding_x=1, padding_y=0, gap=2, max_label_width=20, max_width=240)
-    assert narrow.canvas_width <= 50 and wide.canvas_width <= 120
+    assert narrow.canvas_width <= 30 and wide.canvas_width <= 120
     assert wide.canvas_width == wider.canvas_width
     if reciprocal:
         assert wide.placements['A'].draw_width > narrow.placements['A'].draw_width
