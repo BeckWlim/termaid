@@ -1,13 +1,13 @@
 """Renderer for treemap diagrams.
 
-Renders a Treemap as nested rectangles on a Canvas using a
+Renders a Treemap as nested rectangles on a LayoutScene using a
 squarified layout algorithm for readable proportions.
 Section nodes use dashed borders; leaf nodes use solid borders.
 """
 from __future__ import annotations
 
 from ..model.treemap import Treemap, TreemapNode
-from .canvas import Canvas
+from ..layout.scene import LayoutScene
 from .charset import ASCII, UNICODE, CharSet
 from ..utils import display_width, truncate_to_width
 
@@ -21,16 +21,16 @@ def render_treemap(
     diagram: Treemap,
     *,
     use_ascii: bool = False,
-) -> Canvas:
-    """Render a Treemap model to a Canvas."""
+) -> LayoutScene:
+    """Render a Treemap model to a LayoutScene."""
     cs = ASCII if use_ascii else UNICODE
 
     if not diagram.roots:
-        return Canvas(1, 1)
+        return LayoutScene(1, 1)
 
     total = diagram.total_value
     if total <= 0:
-        return Canvas(1, 1)
+        return LayoutScene(1, 1)
 
     canvas_h = _compute_height(diagram.roots)
     min_w = _compute_min_width(diagram.roots)
@@ -39,7 +39,7 @@ def render_treemap(
     # Cap at 120 unless the minimum requires more
     canvas_w = max(min_w, min(120, max(60, int(min_w * 1.6))))
 
-    canvas = Canvas(canvas_w, canvas_h)
+    canvas = LayoutScene(canvas_w, canvas_h)
     _layout_nodes(canvas, cs, diagram.roots, 0, 0, canvas_w, canvas_h, depth=0)
 
     return canvas
@@ -78,7 +78,7 @@ def _compute_min_width(nodes: list[TreemapNode]) -> int:
 
 
 def _layout_nodes(
-    canvas: Canvas,
+    canvas: LayoutScene,
     cs: CharSet,
     nodes: list[TreemapNode],
     x: int, y: int, w: int, h: int,
@@ -99,7 +99,7 @@ def _layout_nodes(
 
 
 def _slice_layout(
-    canvas: Canvas,
+    canvas: LayoutScene,
     cs: CharSet,
     nodes: list[TreemapNode],
     x: int, y: int, w: int, h: int,
@@ -174,7 +174,7 @@ def _slice_layout(
 
 
 def _draw_node(
-    canvas: Canvas,
+    canvas: LayoutScene,
     cs: CharSet,
     node: TreemapNode,
     x: int, y: int, w: int, h: int,

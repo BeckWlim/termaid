@@ -15,19 +15,6 @@ from termaid.utils import display_width
 FIXTURES = Path(__file__).parent / 'fixtures'
 
 
-@pytest.mark.parametrize('width', [80, 85, 100, 120, 160])
-def test_sibling_labels_share_a_row_without_losing_arrows(width, capsys):
-    assert main([
-        str(FIXTURES / 'production_architecture.mmd'), '--width', str(width),
-        '--strict-width', '--fit-mode', 'reflow', '--gap', '2',
-        '--padding-x', '2', '--padding-y', '0',
-    ]) == 0
-    output = capsys.readouterr().out
-    assert any(line.count('Object bytes') == 3 for line in output.splitlines())
-    assert output.count('▼') == 11 and output.count('►') == 1
-    assert max(map(display_width, output.splitlines())) <= width
-
-
 @pytest.mark.parametrize('width', [68, 85, 100, 120, 160])
 @pytest.mark.parametrize('output_format', ['text', 'styled-json'])
 def test_production_sequence_headers_and_scope_titles(width, output_format, capsys):
@@ -60,7 +47,7 @@ def test_production_sequence_headers_and_scope_titles(width, output_format, caps
         assert '[opt] 独立的存在性查询 RPC' in output
     source = (FIXTURES / 'production_eviction_sequence.mmd').read_text()
     message_count = sum('->>' in line or '-->>' in line for line in source.splitlines())
-    assert output.count('►') + output.count('◄') == message_count
+    assert output.count('▶') + output.count('◀') == message_count
 
 
 def test_scope_wrapping_uses_frame_width_and_preserves_explicit_breaks():

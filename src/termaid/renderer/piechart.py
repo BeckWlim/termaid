@@ -6,7 +6,7 @@ percentages, and optional raw values.
 from __future__ import annotations
 
 from ..model.piechart import PieChart
-from .canvas import Canvas
+from ..layout.scene import LayoutScene
 from .charset import ASCII, UNICODE, CharSet
 from ..utils import display_width
 
@@ -21,11 +21,11 @@ def render_pie_chart(
     diagram: PieChart,
     *,
     use_ascii: bool = False,
-) -> Canvas:
-    """Render a PieChart as a horizontal bar chart on a Canvas."""
+) -> LayoutScene:
+    """Render a PieChart as a horizontal bar chart on a LayoutScene."""
 
     if not diagram.slices:
-        canvas = Canvas(1, 1)
+        canvas = LayoutScene(1, 1)
         return canvas
 
     total = sum(s.value for s in diagram.slices)
@@ -54,7 +54,7 @@ def render_pie_chart(
     bars_top = stacked_top + 4  # stacked bar + labels row + blank
     canvas_h = bars_top + len(diagram.slices) + _MARGIN
 
-    canvas = Canvas(canvas_w, canvas_h)
+    canvas = LayoutScene(canvas_w, canvas_h)
 
     # Title
     if diagram.title:

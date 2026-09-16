@@ -70,7 +70,7 @@ def test_actual_sequence_fitting_keeps_mutex_whole(width, capsys):
     assert max(map(display_width, lines)) <= width
     assert any('.mutex' in line for line in lines)
     output = '\n'.join(lines)
-    assert output.count('►') + output.count('◄') == 39
+    assert output.count('▶') + output.count('◀') == 39
 
 
 @pytest.mark.parametrize('text,width,expected', [

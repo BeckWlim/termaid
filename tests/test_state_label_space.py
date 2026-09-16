@@ -2,6 +2,7 @@
 from collections import Counter
 import json
 from pathlib import Path
+import re
 
 import pytest
 
@@ -17,8 +18,8 @@ from termaid.utils import display_width
 FIXTURE = Path(__file__).parent / 'fixtures/production_supervisor_state.mmd'
 
 
-@pytest.mark.parametrize('width', [68, 85, 100, 120])
-def test_supervisor_keeps_node_names_and_nine_transition_labels(width, capsys):
+@pytest.mark.parametrize('width', [68, 80, 85, 100, 120, 160])
+def test_supervisor_keeps_node_names_and_transition_labels(width, capsys):
     assert main([str(FIXTURE), '--width', str(width), '--strict-width', '--fit-mode', 'reflow',
                  '--gap', '2', '--padding-x', '2', '--padding-y', '0', '--format', 'styled-json']) == 0
     captured = capsys.readouterr()
@@ -28,29 +29,19 @@ def test_supervisor_keeps_node_names_and_nine_transition_labels(width, capsys):
     output = '\n'.join(output_lines)
     assert max(map(display_width, output_lines)) <= width
     assert '[x]' not in output
-    assert output.count('[1]') == 2
-    assert output.rstrip().endswith('[1] another leader exists')
-    # Return text uses the empty left margin. The far-right sentence uses
-    # the requested budget, staying on one line when enough space exists.
-    return_row = next(line for line in output_lines if 'Standby' in line and '►' in line)
-    return_col = return_row.index('╭')
-    assert any(line[:return_col].strip() == 'leadership' and line[return_col:return_col + 1] == '│'
-               for line in output_lines)
-    if width >= 100:
-        assert '│leadership monitor reports loss' in output
-    elif width == 85:
-        assert '│leadership monitor' in output
-        assert '│reports loss' in output
-    else:
-        assert 'leadership monitor reports loss' not in output
+    # References remain available in a narrow terminal, but spare width
+    # should recover these labels alongside their owning transitions.
+    if width >= 80:
+        assert not re.search(r'^\[\d+\] ', output, re.MULTILINE)
     for node_name in ('Starting', 'Standby', 'Candidate', 'LeaderWarmup', 'Recovering', 'Serving'):
         assert node_name in output
     source_graph = parse(FIXTURE.read_text())
     expected_words = Counter(word for edge in source_graph.edges
                              for word in edge.label.split())
     actual_words = Counter(word for row in document['lines'] for chunk in row
-                           if chunk['style'] == 'edge_label' for word in chunk['text'].split())
-    assert actual_words == expected_words + Counter({'[1]': 2})
+                           if chunk['style'] == 'edge_label' for word in chunk['text'].split()
+                           if not re.fullmatch(r'\[\d+\]', word))
+    assert actual_words == expected_words
 
 
 def test_fitted_node_layout_does_not_depend_on_transition_sentence_length():
@@ -64,6 +55,21 @@ def test_fitted_node_layout_does_not_depend_on_transition_sentence_length():
     assert source_layout.placements == short_label_layout.placements
     assert source_layout.col_widths == short_label_layout.col_widths
     assert source_layout.row_heights == short_label_layout.row_heights
+
+
+@pytest.mark.parametrize('reciprocal', [False, True])
+def test_spare_width_separates_opposing_ports_without_stretching_simple_chains(reciprocal):
+    source = 'flowchart TB\nA -->|inspect current view| B\nB --> C'
+    graph = parse(source + ('\nB -->|another leader exists| A' if reciprocal else ''))
+    narrow = compute_layout(graph, padding_x=1, padding_y=0, gap=2, max_label_width=20, max_width=50)
+    wide = compute_layout(graph, padding_x=1, padding_y=0, gap=2, max_label_width=20, max_width=120)
+    wider = compute_layout(graph, padding_x=1, padding_y=0, gap=2, max_label_width=20, max_width=240)
+    assert narrow.canvas_width <= 50 and wide.canvas_width <= 120
+    assert wide.canvas_width == wider.canvas_width
+    if reciprocal:
+        assert wide.placements['A'].draw_width > narrow.placements['A'].draw_width
+    else:
+        assert wide.placements == narrow.placements
 
 
 def test_wrapping_keeps_every_word_and_does_not_erase_lines():

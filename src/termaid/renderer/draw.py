@@ -13,14 +13,15 @@ Drawing order (back to front):
 from __future__ import annotations
 
 from dataclasses import replace
-from copy import deepcopy
 
-from ..graph.model import ArrowType, Direction, EdgeStyle, Graph, GraphNote
+from ..graph.model import ArrowType, EdgeStyle, Graph
 from ..graph.shapes import NodeShape
-from ..layout.grid import GridLayout, NodePlacement, compute_layout
+from ..layout.grid import GridLayout
+from ..layout.graph_plan import plan_graph
 from ..layout.labels import LabelPlan, LabelSurface, TextPlacement, placement_is_clear
-from ..routing.router import AttachDir, RoutedEdge, route_edges
-from .canvas import Canvas, DOWN, LEFT, RIGHT, UP
+from ..routing.router import AttachDir, RoutedEdge, RoutingError, path_cells
+from ..routing.pathfinder import simplify_path
+from ..layout.scene import LayoutScene, DOWN, LEFT, RIGHT, UP
 from ..utils import display_width, wrap_display_text
 from .charset import ASCII, UNICODE, CharSet
 from .shapes import SHAPE_RENDERERS, draw_rectangle
@@ -79,52 +80,24 @@ def render_graph_canvas(
     uniform_nodes: bool = False,
     arrow_position: str = "end",
     max_width: int | None = None,
-) -> Canvas | None:
-    """Render a graph and return the Canvas (with style info).
+) -> LayoutScene | None:
+    """Render a graph and return the LayoutScene (with style info).
 
     Returns None for empty graphs.
     """
     if max_width is not None and max_width < 1:
         raise ValueError("max_width must be positive")
-    if arrow_position not in ("end", "middle"):
-        raise ValueError("arrow_position must be end or middle")
+    if arrow_position not in ("end", "middle", "border"):
+        raise ValueError("arrow_position must be end, middle, or border")
     if not graph.node_order:
         return None
 
-    layout_graph = deepcopy(graph)
+    geometry = plan_graph(graph, padding_x=padding_x, padding_y=padding_y, gap=gap,
+                          max_label_width=max_label_width, uniform_nodes=uniform_nodes,
+                          max_width=max_width)
+    layout_graph, layout, routed = geometry.graph, geometry.layout, geometry.routes
     cs = ASCII if use_ascii else UNICODE
-
-    # Need to handle BT/RL by rendering as TB/LR then flipping
-    direction = layout_graph.direction
-    needs_v_flip = direction == Direction.BT
-    needs_h_flip = direction == Direction.RL
-
-    # Normalize direction for layout
-    if needs_v_flip:
-        layout_graph.direction = Direction.TB
-    elif needs_h_flip:
-        layout_graph.direction = Direction.LR
-
-    # Layout
-    layout = compute_layout(
-        layout_graph, padding_x, padding_y, gap,
-        max_label_width=max_label_width,
-        uniform_nodes=uniform_nodes,
-    )
-
-    # Route edges
-    routed = route_edges(layout_graph, layout)
-
-    # Create canvas (add some margin)
-    # Account for edge paths that may extend beyond node boundaries
-    # (e.g. back edges routed to the right/below of all nodes)
-    width = layout.canvas_width + 4
-    height = layout.canvas_height + 4
-    for re in routed:
-        for x, y in re.draw_path:
-            width = max(width, x + 2)
-            height = max(height, y + 2)
-    canvas = Canvas(width, height)
+    canvas = LayoutScene(geometry.width, geometry.height)
 
     # 1. Draw subgraph borders (background layer)
     _draw_subgraph_borders(canvas, layout, cs)
@@ -152,15 +125,7 @@ def render_graph_canvas(
         canvas, routed, cs, inline_edge_labels=inline_edge_labels, max_width=max_width,
     )
 
-    # Flip if needed
-    if needs_v_flip:
-        canvas.flip_vertical()
-        layout_graph.direction = Direction.BT
-    elif needs_h_flip:
-        canvas.flip_horizontal()
-        layout_graph.direction = Direction.RL
-
-    # References are added after direction flips, always below the diagram.
+    # References are always below the fully oriented diagram.
     # Full label text stays available without changing node layout or routes.
     if label_references:
         drawing_lines = canvas.to_string().splitlines()
@@ -184,7 +149,7 @@ def render_graph_canvas(
     return canvas
 
 
-def _draw_subgraph_borders(canvas: Canvas, layout: GridLayout, cs: CharSet) -> None:
+def _draw_subgraph_borders(canvas: LayoutScene, layout: GridLayout, cs: CharSet) -> None:
     """Draw subgraph border boxes (background layer)."""
     for sb in layout.subgraph_bounds:
         x, y = sb.x, sb.y
@@ -215,7 +180,7 @@ def _draw_subgraph_borders(canvas: Canvas, layout: GridLayout, cs: CharSet) -> N
             canvas.put(r, x + w - 1, cs.sg_vertical, style="subgraph")
 
 
-def _draw_subgraph_labels(canvas: Canvas, layout: GridLayout, cs: CharSet) -> None:
+def _draw_subgraph_labels(canvas: LayoutScene, layout: GridLayout, cs: CharSet) -> None:
     """Draw subgraph labels (on top of everything else)."""
     for sb in layout.subgraph_bounds:
         x, y = sb.x, sb.y
@@ -229,10 +194,11 @@ def _draw_subgraph_labels(canvas: Canvas, layout: GridLayout, cs: CharSet) -> No
 
         label = sb.subgraph.label
         if label:
-            canvas.put_text(y + 1, x + 2, label, style="subgraph_label")
+            for offset, label_line in enumerate(label.split("\n")):
+                canvas.put_text(y + 1 + offset, x + 2, label_line, style="subgraph_label")
 
 
-def _draw_nodes(canvas: Canvas, graph: Graph, layout: GridLayout, cs: CharSet) -> None:
+def _draw_nodes(canvas: LayoutScene, graph: Graph, layout: GridLayout, cs: CharSet) -> None:
     """Draw all node boxes."""
     for nid in graph.node_order:
         if nid not in layout.placements:
@@ -253,17 +219,9 @@ def _draw_nodes(canvas: Canvas, graph: Graph, layout: GridLayout, cs: CharSet) -
         renderer = SHAPE_RENDERERS.get(node.shape, SHAPE_RENDERERS[NodeShape.RECTANGLE])
         renderer(canvas, p.draw_x, p.draw_y, p.draw_width, p.draw_height, node.label, cs, style=style)
 
-        # Protect node cells so edge lines don't overwrite borders
-        for r in range(p.draw_y, p.draw_y + p.draw_height):
-            for c in range(p.draw_x, p.draw_x + p.draw_width):
-                canvas.protect(r, c)
-
         # Overwrite label with styled text if markdown segments exist
         if node.label_segments:
-            label_row = p.draw_y + p.draw_height // 2
-            total_len = sum(display_width(seg.text) for seg in node.label_segments)
-            label_col = p.draw_x + (p.draw_width - total_len) // 2
-            styled_segs: list[tuple[str, str]] = []
+            styled_lines: list[list[tuple[str, str]]] = [[]]
             for seg in node.label_segments:
                 if seg.bold:
                     seg_style = "bold_label"
@@ -271,12 +229,24 @@ def _draw_nodes(canvas: Canvas, graph: Graph, layout: GridLayout, cs: CharSet) -
                     seg_style = "italic_label"
                 else:
                     seg_style = "label"
-                styled_segs.append((seg.text, seg_style))
-            canvas.put_styled_text(label_row, label_col, styled_segs)
+                for line_index, segment_line in enumerate(seg.text.replace("\\n", "\n").split("\n")):
+                    if line_index:
+                        styled_lines.append([])
+                    styled_lines[-1].append((segment_line, seg_style))
+            first_row = p.draw_y + (p.draw_height - len(styled_lines)) // 2
+            for offset, styled_line in enumerate(styled_lines):
+                line_width = sum(display_width(text) for text, style in styled_line)
+                label_col = p.draw_x + (p.draw_width - line_width) // 2
+                canvas.put_styled_text(first_row + offset, label_col, styled_line)
+
+        # Protect the finished node, including its styled label.
+        for r in range(p.draw_y, p.draw_y + p.draw_height):
+            for c in range(p.draw_x, p.draw_x + p.draw_width):
+                canvas.protect(r, c)
 
 
 def _draw_edges(
-    canvas: Canvas, graph: Graph, layout: GridLayout, routed: list[RoutedEdge], cs: CharSet,
+    canvas: LayoutScene, graph: Graph, layout: GridLayout, routed: list[RoutedEdge], cs: CharSet,
     rounded_edges: bool = True,
     inline_edge_labels: bool = False,
     arrow_position: str = "end",
@@ -320,7 +290,7 @@ def _draw_edges(
             # Clip start: 1 cell away from node border or turn point
             x1, y1 = x1 + dx, y1 + dy
             # Extra clip for start arrow on first segment
-            if i == 0 and edge.has_arrow_start and (arrow_position == "end" or edge.arrow_type_start != ArrowType.ARROW):
+            if i == 0 and edge.has_arrow_start and edge.arrow_type_start != ArrowType.ARROW:
                 x1, y1 = x1 + dx, y1 + dy
 
             # Clip end: 1 cell away from target border or turn point
@@ -340,8 +310,7 @@ def _draw_edges(
                     continue
                 canvas.draw_vertical(x1, y1, y2, v_char, style=edge_style_key)
             else:
-                # Diagonal (shouldn't happen with A*, but handle gracefully)
-                _draw_diagonal(canvas, x1, y1, x2, y2, h_char)
+                raise RoutingError(f"Non-orthogonal route for {edge.source} -> {edge.target}")
 
         # Draw corners at path turns
         for i in range(1, len(re.draw_path) - 1):
@@ -357,6 +326,8 @@ def _draw_edges(
 
     # Pass 1b: arrows and T-junctions (drawn after all lines so they
     # aren't overwritten by later edges' line segments)
+    drawn_endpoints: set[tuple[str, tuple[int, int], tuple[int, int], ArrowType,
+                               EdgeStyle, tuple[tuple[str, str], ...]]] = set()
     for re in routed:
         if len(re.draw_path) < 2:
             continue
@@ -372,11 +343,25 @@ def _draw_edges(
 
         arrow_style_key = edge_style_key if edge_style_key != "edge" else "arrow"
 
-        # Draw arrow heads
-        if edge.has_arrow_end and (arrow_position == "end" or edge.arrow_type_end != ArrowType.ARROW):
-            _draw_arrow_head(canvas, re.draw_path[-2], re.draw_path[-1], cs, style=arrow_style_key, arrow_type=edge.arrow_type_end)
-        if edge.has_arrow_start and (arrow_position == "end" or edge.arrow_type_start != ArrowType.ARROW):
-            _draw_arrow_head(canvas, re.draw_path[1], re.draw_path[0], cs, style=arrow_style_key, arrow_type=edge.arrow_type_start)
+        # A shared destination port needs only one identical marker. Keep
+        # distinct directions, endpoint types, and link styles independent.
+        for reverse, enabled, arrow_type, node_id in (
+            (False, edge.has_arrow_end, edge.arrow_type_end, edge.target),
+            (True, edge.has_arrow_start, edge.arrow_type_start, edge.source),
+        ):
+            if not enabled or (arrow_position == "middle" and arrow_type == ArrowType.ARROW):
+                continue
+            endpoint = re.draw_path[0] if reverse else re.draw_path[-1]
+            adjacent = re.draw_path[1] if reverse else re.draw_path[-2]
+            arrival = ((endpoint[0] > adjacent[0]) - (endpoint[0] < adjacent[0]),
+                       (endpoint[1] > adjacent[1]) - (endpoint[1] < adjacent[1]))
+            marker_style = tuple(sorted(graph.link_styles.get(re.index, graph.link_styles.get(-1, {})).items()))
+            marker_key = (node_id, endpoint, arrival, arrow_type, edge.style, marker_style)
+            if marker_key in drawn_endpoints:
+                continue
+            _draw_endpoint_marker(canvas, re, cs, reverse=reverse, style=arrow_style_key,
+                                  arrow_type=arrow_type, on_border=arrow_position != "middle")
+            drawn_endpoints.add(marker_key)
 
         # Draw T-junctions where edges leave node borders
         if len(re.draw_path) >= 2:
@@ -395,7 +380,7 @@ def _draw_edges(
 
 
 def _draw_edge_labels(
-    canvas: Canvas, routed: list[RoutedEdge], cs: CharSet,
+    canvas: LayoutScene, routed: list[RoutedEdge], cs: CharSet,
     *, inline_edge_labels: bool = False, max_width: int | None = None,
 ) -> list[tuple[str, str]]:
     """Measure, reserve, and validate labels against the complete geometry."""
@@ -405,13 +390,43 @@ def _draw_edge_labels(
     # out another edge's complete label.
     placed_labels: list[tuple[int, int, int]] = []
     failed_routes: list[RoutedEdge] = []
+    distinct_routes: list[RoutedEdge] = []
     for route in routed:
+        if not any(previous.edge == route.edge and previous.draw_path == route.draw_path
+                   for previous in distinct_routes):
+            distinct_routes.append(route)
+    owners: dict[tuple[int, int], set[int]] = {}
+    for route_index, route in enumerate(distinct_routes):
+        if route.edge.style != EdgeStyle.INVISIBLE:
+            for cell in path_cells(route.draw_path):
+                owners.setdefault(cell, set()).add(route_index)
+    label_routes: list[RoutedEdge] = []
+    for route_index, route in enumerate(distinct_routes):
+        exclusive_paths: list[list[tuple[int, int]]] = []
+        run: list[tuple[int, int]] = []
+        for cell in path_cells(route.draw_path):
+            if owners.get(cell) == {route_index}:
+                run.append(cell)
+            else:
+                if run:
+                    exclusive_paths.append(simplify_path(run))
+                run = []
+        if run:
+            exclusive_paths.append(simplify_path(run))
+        # Independent paths keep existing placement preferences.
+        label_routes.append(replace(route, label_paths=exclusive_paths))
+    for route in label_routes:
         label_plan.owner = f"edge:{route.index}"
         if route.label and not _draw_edge_label(
             label_plan, route, placed_labels,
             inline=inline_edge_labels, use_ascii=cs is ASCII,
             max_width=max_width, preferred_width=label_area_width,
         ):
+            if _draw_overhanging_branch_label(
+                label_plan, route, placed_labels,
+                max_width=max_width if max_width is not None else label_area_width,
+            ):
+                continue
             failed_routes.append(route)
     label_references: list[tuple[str, str]] = []
     for reference_number, route in enumerate(sorted(failed_routes, key=lambda item: item.index), start=1):
@@ -446,7 +461,7 @@ def _draw_edge_labels(
 
 
 def _draw_middle_arrows(
-    canvas: Canvas, graph: Graph, routed: list[RoutedEdge], cs: CharSet,
+    canvas: LayoutScene, graph: Graph, routed: list[RoutedEdge], cs: CharSet,
 ) -> None:
     """Place directional heads on straight cells, preferring unshared paths.
 
@@ -504,7 +519,7 @@ def _draw_middle_arrows(
             endpoint_dx = (endpoint[0] > adjacent[0]) - (endpoint[0] < adjacent[0])
             endpoint_dy = (endpoint[1] > adjacent[1]) - (endpoint[1] < adjacent[1])
             head_x, head_y = endpoint[0] - endpoint_dx, endpoint[1] - endpoint_dy
-            if not canvas.is_protected(head_y, head_x) and canvas.get(head_y, head_x) not in "►◄▲▼><^vo×╳x":
+            if not canvas.is_protected(head_y, head_x) and canvas.get(head_y, head_x) not in "▶◀▲▼><^vo×╳x":
                 candidates.append((head_x, head_y, -endpoint_dx if reverse else endpoint_dx,
                                    -endpoint_dy if reverse else endpoint_dy, 0))
         for x, y, dx, dy, distance in candidates:
@@ -517,49 +532,62 @@ def _draw_middle_arrows(
             break
 
 
-def _draw_crossings(canvas: Canvas, routed: list[RoutedEdge], cs: CharSet) -> None:
-    """Distinguish unrelated crossing lines from connected branch junctions.
+def _draw_crossings(canvas: LayoutScene, routed: list[RoutedEdge], cs: CharSet) -> None:
+    """Only endpoint-connected common prefixes/suffixes form junctions.
 
-    Track graph ownership in drawing cells: a shared source or target may
-    form a junction, but orthogonal routes between unrelated endpoints do
-    not connect. Mark crossings before arrowheads and labels are drawn.
+    Routes can diverge and cross again despite sharing a graph endpoint.
+    Track every owner locally; a third unrelated route crossing a bus must
+    still receive a crossing marker.
     """
     directions_by_cell: dict[tuple[int, int], dict[int, int]] = {}
-    edges_by_index = {index: route.edge for index, route in enumerate(routed)}
+    cells_by_route = [list(path_cells(route.draw_path)) for route in routed]
     for edge_index, route in enumerate(routed):
         if route.edge.style == EdgeStyle.INVISIBLE:
             continue
-        for first, last in zip(route.draw_path, route.draw_path[1:]):
-            if first[0] != last[0] and first[1] != last[1]:
-                continue
-            delta_col = (last[0] > first[0]) - (last[0] < first[0])
-            delta_row = (last[1] > first[1]) - (last[1] < first[1])
-            distance = abs(last[0] - first[0]) + abs(last[1] - first[1])
-            outgoing = RIGHT if delta_col > 0 else LEFT if delta_col < 0 else DOWN if delta_row > 0 else UP
-            incoming = LEFT if delta_col > 0 else RIGHT if delta_col < 0 else UP if delta_row > 0 else DOWN
-            for step in range(distance + 1):
-                cell = (first[0] + step * delta_col, first[1] + step * delta_row)
-                if cell in (route.draw_path[0], route.draw_path[-1]):
-                    continue
-                mask = (incoming if step > 0 else 0) | (outgoing if step < distance else 0)
-                owners = directions_by_cell.setdefault(cell, {})
-                owners[edge_index] = owners.get(edge_index, 0) | mask
-    for (col, row), owners in directions_by_cell.items():
+        cells = cells_by_route[edge_index]
+        for previous, cell, following in zip(cells, cells[1:], cells[2:]):
+            mask = 0
+            for neighbor in (previous, following):
+                mask |= (LEFT if neighbor[0] < cell[0] else RIGHT if neighbor[0] > cell[0]
+                         else UP if neighbor[1] < cell[1] else DOWN)
+            directions_by_cell.setdefault(cell, {})[edge_index] = mask
+
+    shared_cells: dict[tuple[int, int], set[tuple[int, int]]] = {}
+
+    def connected(first_index: int, second_index: int, cell: tuple[int, int]) -> bool:
+        pair = (first_index, second_index)
+        if pair not in shared_cells:
+            first_edge = routed[first_index].edge
+            second_edge = routed[second_index].edge
+            common: set[tuple[int, int]] = set()
+            first_cells = cells_by_route[first_index]
+            second_cells = cells_by_route[second_index]
+            # Coincidence elsewhere is not a trunk. Walk from a shared
+            # endpoint only as far as the first divergence/convergence.
+            if first_edge.source == second_edge.source:
+                for first_cell, second_cell in zip(first_cells, second_cells):
+                    if first_cell != second_cell:
+                        break
+                    common.add(first_cell)
+            if first_edge.target == second_edge.target:
+                for first_cell, second_cell in zip(reversed(first_cells), reversed(second_cells)):
+                    if first_cell != second_cell:
+                        break
+                    common.add(first_cell)
+            shared_cells[pair] = common
+        return cell in shared_cells[pair]
+
+    for cell, owners in directions_by_cell.items():
+        col, row = cell
         if len(owners) < 2 or canvas.is_protected(row, col):
             continue
         owner_masks = list(owners.items())
-        crossing = False
-        for position, (first_index, first_mask) in enumerate(owner_masks):
-            first_edge = edges_by_index[first_index]
-            for second_index, second_mask in owner_masks[position + 1:]:
-                second_edge = edges_by_index[second_index]
-                if ((first_mask | second_mask) == UP | DOWN | LEFT | RIGHT
-                        and first_edge.source != second_edge.source
-                        and first_edge.target != second_edge.target):
-                    crossing = True
-                    break
-            if crossing:
-                break
+        crossing = any(
+            (first_mask | second_mask) == UP | DOWN | LEFT | RIGHT
+            and not connected(first_index, second_index, cell)
+            for position, (first_index, first_mask) in enumerate(owner_masks)
+            for second_index, second_mask in owner_masks[position + 1:]
+        )
         if crossing:
             canvas.put(row, col, cs.unconnected_crossing, merge=False, style="edge")
 
@@ -573,19 +601,6 @@ def _edge_line_chars(style: EdgeStyle, cs: CharSet) -> tuple[str, str]:
     elif style == EdgeStyle.INVISIBLE:
         return " ", " "
     return cs.line_horizontal, cs.line_vertical
-
-
-def _draw_diagonal(
-    canvas: Canvas, x1: int, y1: int, x2: int, y2: int, ch: str,
-) -> None:
-    """Draw a rough diagonal line (fallback)."""
-    steps = max(abs(x2 - x1), abs(y2 - y1))
-    if steps == 0:
-        return
-    for step in range(steps + 1):
-        x = x1 + (x2 - x1) * step // steps
-        y = y1 + (y2 - y1) * step // steps
-        canvas.put(y, x, ch)
 
 
 def _get_corner_char(
@@ -636,8 +651,37 @@ def _get_corner_char(
     return corner_map.get((dx_in, dy_in, dx_out, dy_out))
 
 
+def _draw_endpoint_marker(
+    canvas: LayoutScene, route: RoutedEdge, cs: CharSet, *, reverse: bool,
+    style: str, arrow_type: ArrowType, on_border: bool = False,
+) -> None:
+    """Keep a crossing or another marker intact by using a nearby route cell."""
+    points = route.draw_path[::-1] if reverse else route.draw_path
+    adjacent, endpoint = points[-2:]
+    dx = (endpoint[0] > adjacent[0]) - (endpoint[0] < adjacent[0])
+    dy = (endpoint[1] > adjacent[1]) - (endpoint[1] < adjacent[1])
+    if on_border and arrow_type == ArrowType.ARROW:
+        triangle = cs.arrow_right if dx > 0 else cs.arrow_left if dx < 0 else cs.arrow_down if dy > 0 else cs.arrow_up
+        if canvas.put_border_marker(endpoint[1], endpoint[0], triangle, style):
+            return
+    head = (endpoint[0] - dx, endpoint[1] - dy)
+    # Never turn a corner or merge into an arrowhead: that hides the bend
+    # and suggests the head belongs to a different branch.
+    if not canvas.is_protected(head[1], head[0]) and canvas.get(head[1], head[0]) in " ─┄━│┆┃-|.:=H":
+        _draw_arrow_head(canvas, adjacent, endpoint, cs, style=style, arrow_type=arrow_type)
+        return
+    for first, last in reversed(list(zip(points, points[1:]))):
+        segment_dx = (last[0] > first[0]) - (last[0] < first[0])
+        segment_dy = (last[1] > first[1]) - (last[1] < first[1])
+        for col, row in reversed(list(path_cells([first, last]))[1:-1]):
+            if not canvas.is_protected(row, col) and canvas.get(row, col) in "─┄━│┆┃-|":
+                _draw_arrow_head(canvas, (col, row), (col + segment_dx, row + segment_dy),
+                                 cs, style=style, arrow_type=arrow_type)
+                return
+
+
 def _draw_arrow_head(
-    canvas: Canvas,
+    canvas: LayoutScene,
     from_point: tuple[int, int],
     to_point: tuple[int, int],
     cs: CharSet,
@@ -677,7 +721,7 @@ def _draw_arrow_head(
 
 
 def _draw_box_start(
-    canvas: Canvas,
+    canvas: LayoutScene,
     edge_point: tuple[int, int],
     next_point: tuple[int, int],
     re: RoutedEdge,
@@ -874,7 +918,7 @@ def _try_place_on_segment(
         # Horizontal segment — center inline labels on the edge, otherwise
         # place labels above or below it.
         seg_len = abs(x2 - x1)
-        if seg_len >= label_len + 2:
+        if seg_len >= label_len:
             mid = (min(x1, x2) + max(x1, x2)) // 2
             start = mid - label_len // 2
             if inline:
@@ -898,6 +942,22 @@ def _draw_edge_label(
     max_width: int | None = None, preferred_width: int | None = None,
 ) -> bool:
     """Use an explicit width budget for readable labels before wrapping."""
+    if re.label_paths is not None:
+        route_cells = list(path_cells(re.draw_path))
+        for branch_path in reversed(re.label_paths):
+            # Segment endpoints are excluded as label anchors. Include one
+            # context cell on each side so even a single exclusive cell is
+            # usable, without borrowing a shared trunk for the label.
+            first_index = route_cells.index(branch_path[0])
+            last_index = first_index + sum(1 for _ in path_cells(branch_path)) - 1
+            context_start = max(0, first_index - 1)
+            contextual_path = simplify_path(route_cells[context_start:last_index + 2])
+            if _draw_edge_label(
+                canvas, replace(re, draw_path=contextual_path, label_paths=None), placed_labels,
+                inline=inline, use_ascii=use_ascii, max_width=max_width, preferred_width=preferred_width,
+            ):
+                return True
+        return False
     if max_width is not None:
         return _draw_single_line_edge_label(
             canvas, re, placed_labels, inline=inline, use_ascii=use_ascii, max_width=max_width,
@@ -912,6 +972,80 @@ def _draw_edge_label(
     return _draw_single_line_edge_label(
         canvas, re, placed_labels, inline=inline, use_ascii=use_ascii, max_width=max_width,
     ) or _draw_wrapped_edge_label(canvas, re, placed_labels, max_width=max_width)
+
+
+def _draw_overhanging_branch_label(
+    canvas: LabelSurface, route: RoutedEdge, placed: list[tuple[int, int, int]],
+    *, max_width: int,
+) -> bool:
+    """Anchor text to an exclusive branch without requiring equal spans.
+
+    A short clear connector can identify a longer label immediately beside
+    it. The label may overhang the segment, but its anchor must be
+    exclusive and its entire rectangle and approach must remain clear.
+    """
+    natural_width = max(map(display_width, route.label.split('\n')), default=0)
+    if not natural_width:
+        return False
+    candidate_widths = sorted({min(natural_width, max_width), 24, 18, 14, 10}, reverse=True)
+    wrappings: list[tuple[str, ...]] = []
+    for width in candidate_widths:
+        if width > max_width:
+            continue
+        lines = tuple(wrap_display_text(route.label, width, hard_break=False))
+        if len(lines) <= 4 and max(map(display_width, lines), default=0) <= width and lines not in wrappings:
+            wrappings.append(lines)
+    wrappings.sort(key=lambda lines: len(lines))
+    route_cells = list(path_cells(route.draw_path))
+    exclusive_cells = {cell for branch in route.label_paths or [] for cell in path_cells(branch)}
+    vertical_anchors = [cell for previous, cell, following in zip(route_cells, route_cells[1:], route_cells[2:])
+                        if previous[0] == cell[0] == following[0] and cell in exclusive_cells
+                        and not canvas.is_protected(cell[1], cell[0])
+                        and canvas.get(cell[1], cell[0]) in '│┆┃|:']
+    for lines in wrappings:
+        text_width = max(map(display_width, lines))
+        text_height = len(lines)
+        rectangle_lines = tuple(line + ' ' * (text_width - display_width(line)) for line in lines)
+        for anchor_col, anchor_row in reversed(vertical_anchors):
+            for row in dict.fromkeys((anchor_row - text_height // 2, anchor_row, anchor_row - text_height + 1)):
+                for col in (anchor_col + 1, anchor_col - text_width):
+                    placement = TextPlacement('edge-label', row, col, rectangle_lines)
+                    if row + text_height > canvas.height or not placement_is_clear(canvas, placement, max_width=max_width):
+                        continue
+                    if any(_label_overlaps(row + offset, col, col + text_width, placed)
+                           for offset in range(text_height)):
+                        continue
+                    for offset, line in enumerate(lines):
+                        _place_label(canvas, row + offset, col, line, placed, max_width=max_width)
+                    return True
+        for branch in reversed(route.label_paths or []):
+            for first, last in zip(branch, branch[1:] or branch):
+                if first[1] != last[1]:
+                    continue
+                left, right = sorted((first[0], last[0]))
+                anchors = sorted({left, left + 1, (left + right) // 2, right - 1, right})
+                for anchor in anchors:
+                    if ((anchor, first[1]) not in exclusive_cells or canvas.is_protected(first[1], anchor)
+                            or canvas.get(first[1], anchor) not in '─┄━-='):
+                        continue
+                    for col in (anchor - text_width // 2, anchor - text_width + 1, anchor):
+                        for distance in (1, 2):
+                            for row in (first[1] - distance - text_height + 1, first[1] + distance):
+                                placement = TextPlacement('edge-label', row, col, rectangle_lines)
+                                if row + text_height > canvas.height or not placement_is_clear(canvas, placement, max_width=max_width):
+                                    continue
+                                if any(_label_overlaps(row + offset, col, col + text_width, placed)
+                                       for offset in range(text_height)):
+                                    continue
+                                bridge_rows = (range(row + text_height, first[1]) if row < first[1]
+                                               else range(first[1] + 1, row))
+                                if any(canvas.is_protected(bridge_row, anchor) or canvas.get(bridge_row, anchor) != ' '
+                                       for bridge_row in bridge_rows):
+                                    continue
+                                for offset, line in enumerate(lines):
+                                    _place_label(canvas, row + offset, col, line, placed, max_width=max_width)
+                                return True
+    return False
 
 
 def _draw_single_line_edge_label(
@@ -929,7 +1063,7 @@ def _draw_single_line_edge_label(
     Uses collision detection to avoid overlapping previously placed labels.
     """
     label = re.label
-    if not label:
+    if not label or "\n" in label:
         return False
 
     path = re.draw_path
@@ -1030,10 +1164,11 @@ def _draw_wrapped_edge_label(
     """
     width_limit = max_width if max_width is not None else canvas.width
     words = route.label.split()
-    if len(words) < 2:
+    if len(words) < 2 and "\n" not in route.label:
         return False
-    minimum_width = max(map(display_width, words))
-    maximum_width = min(width_limit, display_width(route.label) - 1)
+    minimum_width = max(map(display_width, words), default=1)
+    logical_width = max(map(display_width, route.label.split("\n")))
+    maximum_width = min(width_limit, logical_width if "\n" in route.label else logical_width - 1)
     if minimum_width > maximum_width:
         return False
     # Bounded work even for very long labels; small corridors are exhaustive.
@@ -1090,7 +1225,7 @@ def _draw_wrapped_edge_label(
     return False
 
 
-def _draw_notes(canvas: Canvas, graph: Graph, layout: GridLayout, cs: CharSet) -> None:
+def _draw_notes(canvas: LayoutScene, graph: Graph, layout: GridLayout, cs: CharSet) -> None:
     """Draw note boxes next to their target nodes."""
     for note in graph.notes:
         if note.target not in layout.placements:

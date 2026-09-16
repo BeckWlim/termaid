@@ -124,7 +124,7 @@ class TestAsciiMode:
         output = render(source, use_ascii=True)
         assert len(output) > 0
         # ASCII output should not contain unicode box-drawing characters
-        box_chars = set("┌┐└┘─│├┤┬┴┼╭╮╰╯►◄▲▼┄┆━┃╋")
+        box_chars = set("┌┐└┘─│├┤┬┴┼╭╮╰╯▶◀▲▼┄┆━┃╋")
         used_box_chars = set(output) & box_chars
         assert not used_box_chars, (
             f"ASCII mode output contains unicode chars: {used_box_chars}"

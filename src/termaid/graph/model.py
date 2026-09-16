@@ -23,7 +23,7 @@ class LabelSegment:
 
 
 class ArrowType(Enum):
-    ARROW = auto()    # --> (filled triangle ►▼◄▲)
+    ARROW = auto()    # --> (filled triangle ▶▼◀▲)
     CIRCLE = auto()   # --o (○)
     CROSS = auto()    # --x (×)
 

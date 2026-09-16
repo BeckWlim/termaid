@@ -7,7 +7,7 @@ from __future__ import annotations
 
 from ..model.timeline import Timeline
 from ..utils import display_width
-from .canvas import Canvas
+from ..layout.scene import LayoutScene
 from .charset import ASCII, UNICODE, CharSet
 
 
@@ -15,12 +15,12 @@ def render_timeline(
     diagram: Timeline,
     *,
     use_ascii: bool = False,
-) -> Canvas:
-    """Render a Timeline model to a Canvas."""
+) -> LayoutScene:
+    """Render a Timeline model to a LayoutScene."""
     cs = ASCII if use_ascii else UNICODE
 
     if not diagram.sections:
-        return Canvas(1, 1)
+        return LayoutScene(1, 1)
 
     # Build lines with per-section styles
     styled_lines: list[tuple[str, str]] = []  # (text, style_key)
@@ -59,7 +59,7 @@ def render_timeline(
     # Write to canvas
     width = max((display_width(line) for line, _ in styled_lines), default=1) + 1
     height = len(styled_lines)
-    canvas = Canvas(width, height)
+    canvas = LayoutScene(width, height)
     for r, (line, style) in enumerate(styled_lines):
         canvas.put_text(r, 0, line, style=style)
 

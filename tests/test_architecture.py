@@ -82,4 +82,4 @@ class TestArchitectureRendering:
         assert "Web App" in output
         assert "Data Store" in output
         assert "┌" in output  # box drawing
-        assert "►" in output  # arrow
+        assert "▶" in output  # arrow

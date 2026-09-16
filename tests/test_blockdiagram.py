@@ -140,7 +140,7 @@ class TestBlockDiagramRendering:
         )
         assert "Hello" in output
         assert "World" in output
-        unicode_chars = set("┌┐└┘─│├┤┬┴┼╭╮╰╯►◄▲▼┄┆━┃╋")
+        unicode_chars = set("┌┐└┘─│├┤┬┴┼╭╮╰╯▶◀▲▼┄┆━┃╋")
         for ch in output:
             assert ch not in unicode_chars
 
@@ -176,7 +176,7 @@ class TestBlockDiagramRendering:
         )
         assert "Source" in output
         assert "Target" in output
-        assert "►" in output or ">" in output, "Arrow should be rendered between blocks"
+        assert "▶" in output or ">" in output, "Arrow should be rendered between blocks"
 
 
 class TestNestedGroups:

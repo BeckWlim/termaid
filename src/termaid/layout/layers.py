@@ -7,8 +7,7 @@ from __future__ import annotations
 
 from collections import deque
 
-from ..graph.model import Edge, Graph, Subgraph
-from .grid import STRIDE, GridLayout
+from ..graph.model import ArrowType, Edge, EdgeStyle, Graph, Subgraph
 
 
 def expand_subgraph_edges(graph: Graph) -> list[Edge]:
@@ -51,53 +50,70 @@ def expand_subgraph_edges(graph: Graph) -> list[Edge]:
     return virtual
 
 
-def assign_layers(graph: Graph) -> dict[str, int]:
-    """Assign each node to a layer based on longest path from a root.
+def _acyclic_layer_constraints(graph: Graph) -> set[tuple[str, str]] | None:
+    """Keep every dependency in a DAG, including shortcuts from its roots.
 
-    Back-edges (edges that would create cycles) are excluded from
-    layer computation to prevent infinite loops and excessive layers.
+    Bidirectional arrows use their declared source/target for ranking; the
+    reverse arrowhead does not introduce a second layout dependency.
+    Cyclic graphs retain the existing discovery-tree feedback policy.
     """
-    layers: dict[str, int] = {}
+    # Compound graphs have their own membership and orthogonal-rank rules.
+    # Keep their existing constraints until the compound pass resolves them.
+    if graph.subgraphs:
+        return None
+    successors: dict[str, set[str]] = {node_id: set() for node_id in graph.node_order}
+    incoming_count = {node_id: 0 for node_id in graph.node_order}
+    constraints: set[tuple[str, str]] = set()
+    for edge in graph.edges:
+        if edge.source not in successors or edge.target not in successors:
+            continue
+        if edge.target not in successors[edge.source]:
+            successors[edge.source].add(edge.target)
+            incoming_count[edge.target] += 1
+            constraints.add((edge.source, edge.target))
+    ready = deque(node_id for node_id in graph.node_order if incoming_count[node_id] == 0)
+    visited_count = 0
+    while ready:
+        source_id = ready.popleft()
+        visited_count += 1
+        for target_id in successors[source_id]:
+            incoming_count[target_id] -= 1
+            if incoming_count[target_id] == 0:
+                ready.append(target_id)
+    return constraints if visited_count == len(graph.node_order) else None
+
+
+def _discovery_tree_constraints(graph: Graph) -> set[tuple[str, str]]:
+    """Stable feedback policy for cyclic and compound graphs."""
     roots = graph.get_roots()
+    visited = set(roots)
+    queue = deque(roots)
+    constraints: set[tuple[str, str]] = set()
+    for component_root in [*roots, *graph.node_order]:
+        if component_root not in visited:
+            visited.add(component_root)
+            queue.append(component_root)
+        while queue:
+            source_id = queue.popleft()
+            for target_id in graph.get_children(source_id):
+                if target_id not in visited:
+                    visited.add(target_id)
+                    constraints.add((source_id, target_id))
+                    queue.append(target_id)
+    return constraints
 
-    # BFS to assign initial layers
-    for root in roots:
-        if root not in layers:
-            layers[root] = 0
 
-    # Detect tree edges via BFS (shortest-path discovery).
-    # BFS ensures each node is discovered at the shallowest depth,
-    # so edges like F->D (where D is also reachable from B at a
-    # shallower level) are correctly treated as back/cross-edges.
-    tree_edges: set[tuple[str, str]] = set()
-    visited: set[str] = set()
+def assign_layers(graph: Graph) -> dict[str, int]:
+    """Respect DAG dependencies; use bounded feedback ranks for other graphs.
 
-    queue: deque[str] = deque()
-    for root in roots:
-        if root not in visited:
-            visited.add(root)
-            queue.append(root)
-
-    while queue:
-        node = queue.popleft()
-        for child in graph.get_children(node):
-            if child not in visited:
-                visited.add(child)
-                tree_edges.add((node, child))
-                queue.append(child)
-
-    # Also BFS from any unvisited nodes (disconnected components)
-    for nid in graph.node_order:
-        if nid not in visited:
-            visited.add(nid)
-            queue.append(nid)
-            while queue:
-                node = queue.popleft()
-                for child in graph.get_children(node):
-                    if child not in visited:
-                        visited.add(child)
-                        tree_edges.add((node, child))
-                        queue.append(child)
+    A root shortcut cannot pull a downstream DAG node above its other
+    predecessors. Compound graphs keep their membership/orthogonal policy.
+    """
+    roots = graph.get_roots()
+    layers = {root: 0 for root in roots}
+    acyclic_constraints = _acyclic_layer_constraints(graph)
+    layer_edges = (_discovery_tree_constraints(graph) if acyclic_constraints is None
+                   else acyclic_constraints)
 
     # Build edge min_length lookup
     edge_min_lengths: dict[tuple[str, str], int] = {}
@@ -105,14 +121,14 @@ def assign_layers(graph: Graph) -> dict[str, int]:
         key = (e.source, e.target)
         edge_min_lengths[key] = max(edge_min_lengths.get(key, 1), e.min_length)
 
-    # Assign layers using only tree edges (no back-edges)
+    # Assign layers using forward constraints (no back-edges).
     changed = True
     max_iter = len(graph.node_order) * 2
     iteration = 0
     while changed and iteration < max_iter:
         changed = False
         iteration += 1
-        for src, tgt in tree_edges:
+        for src, tgt in layer_edges:
             if src in layers:
                 ml = edge_min_lengths.get((src, tgt), 1)
                 new_layer = layers[src] + ml
@@ -156,7 +172,7 @@ def assign_layers(graph: Graph) -> dict[str, int]:
         while changed and iteration < max_iter:
             changed = False
             iteration += 1
-            for src, tgt in tree_edges:
+            for src, tgt in layer_edges:
                 if src in layers:
                     ml = edge_min_lengths.get((src, tgt), 1)
                     new_layer = layers[src] + ml
@@ -171,6 +187,41 @@ def assign_layers(graph: Graph) -> dict[str, int]:
                 layers[nid] = 0
 
     return layers
+
+
+def _assign_internal_layers(
+    graph: Graph, members: set[str], edges: list[Edge],
+) -> dict[str, int]:
+    """Longest-path layers, with deterministic feedback edges for cycles.
+
+    Process every node once. If only cycles remain, choose the first declared
+    remaining node and treat subsequent incoming edges as return routes.
+    Acyclic edges still retain their full longest-path and min-length constraints.
+    """
+    node_order = [node_id for node_id in graph.node_order if node_id in members]
+    successors: dict[str, list[Edge]] = {node_id: [] for node_id in node_order}
+    incoming_count = {node_id: 0 for node_id in node_order}
+    for edge in edges:
+        successors[edge.source].append(edge)
+        incoming_count[edge.target] += 1
+    ready = deque(node_id for node_id in node_order if incoming_count[node_id] == 0)
+    remaining = set(node_order)
+    internal_layers = {node_id: 0 for node_id in node_order}
+    while remaining:
+        if not ready:
+            ready.append(next(node_id for node_id in node_order if node_id in remaining))
+        source_id = ready.popleft()
+        remaining.remove(source_id)
+        for edge in successors[source_id]:
+            if edge.target not in remaining:
+                continue
+            internal_layers[edge.target] = max(
+                internal_layers[edge.target], internal_layers[source_id] + edge.min_length,
+            )
+            incoming_count[edge.target] -= 1
+            if incoming_count[edge.target] == 0:
+                ready.append(edge.target)
+    return internal_layers
 
 
 def separate_subgraph_layers(graph: Graph, layers: dict[str, int]) -> dict[str, int]:
@@ -263,28 +314,9 @@ def separate_subgraph_layers(graph: Graph, layers: dict[str, int]) -> dict[str, 
                      if e.source in sg_nodes and e.target in sg_nodes
                      and not e.is_self_reference]
 
-        # Internal roots: nodes with no incoming internal edge
-        int_targets = {e.target for e in int_edges}
-        int_roots = [nid for nid in sg_nodes if nid not in int_targets]
-        if not int_roots:
-            int_roots = list(sg_nodes)[:1]
-
-        int_layers: dict[str, int] = {r: 0 for r in int_roots}
-        changed = True
-        for _ in range(len(sg_nodes) * 2 + 1):
-            if not changed:
-                break
-            changed = False
-            for e in int_edges:
-                if e.source in int_layers:
-                    new_layer = int_layers[e.source] + 1
-                    if e.target not in int_layers or int_layers[e.target] < new_layer:
-                        int_layers[e.target] = new_layer
-                        changed = True
-
-        for nid in sg_nodes:
-            if nid not in int_layers:
-                int_layers[nid] = 0
+        # Relax each forward edge once; return edges cannot keep pushing
+        # both endpoints of a restore/offload cycle into empty layers.
+        int_layers = _assign_internal_layers(graph, sg_nodes, int_edges)
 
         sg_internal[sg_id] = int_layers
         sg_sizes[sg_id] = (max(int_layers.values()) + 1) if int_layers else 0
@@ -297,6 +329,17 @@ def separate_subgraph_layers(graph: Graph, layers: dict[str, int]) -> dict[str, 
 
     sg_offsets: dict[str, int] = {}
     for sg_id in topo:
+        # Stacking groups must not pull a backend up onto its standalone
+        # caller's layer. That would make the group's rectangular frame
+        # enclose a node which is not a member of the subgraph.
+        predecessor_floor = max((
+            layers[edge.source] + edge.min_length
+            for edge in graph.edges
+            if node_sg.get(edge.target) == sg_id
+            and edge.source not in node_sg and edge.source in layers
+            and layers[edge.source] < layers[edge.target]
+        ), default=0)
+        offset = max(offset, predecessor_floor)
         sg_offsets[sg_id] = offset
         offset += sg_sizes[sg_id]
 
@@ -342,6 +385,36 @@ def _count_crossings(graph: Graph, layer_lists: list[list[str]]) -> int:
     return total
 
 
+def _greedy_crossing_sweeps(graph: Graph, ordering: list[list[str]]) -> list[list[str]]:
+    """Bounded two-sided adjacent swaps after barycenter ordering stalls.
+
+    Like layered layout's greedy-switch phase, accept only strict crossing
+    reductions. Preserve group membership and stable order for tied scores.
+    """
+    candidate_order = [list(layer) for layer in ordering]
+    crossing_count = _count_crossings(graph, candidate_order)
+    if crossing_count == 0:
+        return candidate_order
+    groups = {node_id: graph.find_subgraph_for_node(node_id) for layer in ordering for node_id in layer}
+    for sweep in range(4):
+        improved = False
+        for layer in candidate_order[::1 if sweep % 2 == 0 else -1]:
+            for position in range(len(layer) - 1):
+                first, second = layer[position:position + 2]
+                if groups[first] is not groups[second]:
+                    continue
+                layer[position], layer[position + 1] = second, first
+                proposed_count = _count_crossings(graph, candidate_order)
+                if proposed_count < crossing_count:
+                    crossing_count = proposed_count
+                    improved = True
+                else:
+                    layer[position], layer[position + 1] = first, second
+        if not improved or crossing_count == 0:
+            break
+    return candidate_order
+
+
 def order_layers(graph: Graph, layers: dict[str, int]) -> list[list[str]]:
     """Order nodes within each layer using barycenter heuristic."""
     # Group nodes by layer
@@ -383,7 +456,7 @@ def order_layers(graph: Graph, layers: dict[str, int]) -> list[list[str]]:
         if no_improvement >= 4 or best_crossings == 0:
             break
 
-    layer_lists = best_ordering
+    layer_lists = _greedy_crossing_sweeps(graph, best_ordering)
 
     # Enforce topological order for orthogonal subgraph nodes in the same layer
     ortho_sets = _get_orthogonal_sg_nodes(graph)
@@ -445,8 +518,14 @@ def compute_gap_expansions(
             node_pos[nid] = pos_idx
 
     # Count edges that need horizontal routing per gap
-    diagonal_per_gap: dict[int, int] = {}
+    channels_per_gap: dict[int, set[int]] = {}
+    bus_owners: dict[tuple[str, int, bool, bool], int] = {}
+    bus_counts: dict[int, int] = {}
+    endpoint_counts: dict[tuple[str, str], int] = {}
     for edge in graph.edges:
+        endpoints = (edge.source, edge.target)
+        endpoint_counts[endpoints] = endpoint_counts.get(endpoints, 0) + 1
+    for edge_index, edge in enumerate(graph.edges):
         if edge.is_self_reference:
             continue
         src_layer = node_layer.get(edge.source)
@@ -458,14 +537,30 @@ def compute_gap_expansions(
         if src_p == tgt_p:
             continue  # straight edge, no horizontal routing needed
 
-        # Count this edge for each gap it crosses
+        # Compatible forward siblings turn on a single bus. Reserving one
+        # lane per destination makes an ordinary fan-out unnecessarily tall.
+        channel_index = edge_index
+        if (not graph.subgraphs and tgt_layer == src_layer + 1
+                and edge.style == EdgeStyle.SOLID
+                and edge.arrow_type_start == edge.arrow_type_end == ArrowType.ARROW
+                and endpoint_counts[(edge.source, edge.target)] == 1
+                and edge_index not in graph.link_styles and -1 not in graph.link_styles):
+            signature = (edge.source, tgt_layer, edge.has_arrow_start, edge.has_arrow_end)
+            channel_index = bus_owners.setdefault(signature, edge_index)
+            bus_counts[channel_index] = bus_counts.get(channel_index, 0) + 1
+
+        # Count routing channels in every gap crossed by the edge.
         lo, hi = min(src_layer, tgt_layer), max(src_layer, tgt_layer)
         for gap_idx in range(lo, hi):
-            diagonal_per_gap[gap_idx] = diagonal_per_gap.get(gap_idx, 0) + 1
+            channels_per_gap.setdefault(gap_idx, set()).add(channel_index)
 
     # Extra cells = max(0, n_diagonal - 1): one edge fits in the default
     # gap cell, each additional edge needs one more cell.
-    return {gap: max(0, n - 1) for gap, n in diagonal_per_gap.items()}
+    # Even one shared bus needs separate turn and approach cells when a
+    # terminal gap is only one character high/wide.
+    shared_channels = {channel for channel, count in bus_counts.items() if count > 1}
+    return {gap: max(int(bool(channels & shared_channels)), len(channels) - 1)
+            for gap, channels in channels_per_gap.items()}
 
 
 def _get_orthogonal_sg_nodes(graph: Graph) -> list[set[str]]:

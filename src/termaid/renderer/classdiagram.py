@@ -1,6 +1,6 @@
 """Renderer for class diagrams.
 
-Renders a ClassDiagram directly to a Canvas using layered layout,
+Renders a ClassDiagram directly to a LayoutScene using layered layout,
 following the same pattern as the sequence diagram renderer.
 """
 from __future__ import annotations
@@ -8,7 +8,7 @@ from __future__ import annotations
 from collections import deque
 
 from ..model.classdiagram import ClassDef, ClassDiagram, Note, Relationship
-from .canvas import Canvas
+from ..layout.scene import LayoutScene
 from .charset import ASCII, UNICODE, CharSet
 from ..utils import display_width
 
@@ -74,7 +74,7 @@ def _compute_box_size(cls: ClassDef, padding_x: int = _CLASS_PAD) -> tuple[int, 
 
 
 def _draw_class_box(
-    canvas: Canvas, x: int, y: int, cls: ClassDef, cs: CharSet,
+    canvas: LayoutScene, x: int, y: int, cls: ClassDef, cs: CharSet,
     padding_x: int = _CLASS_PAD,
 ) -> tuple[int, int]:
     """Draw a class box and return (width, height)."""
@@ -322,7 +322,7 @@ def _compute_layout(
 
 
 def _draw_routed_line(
-    canvas: Canvas,
+    canvas: LayoutScene,
     r1: int, c1: int, r2: int, c2: int,
     h_char: str, v_char: str, use_ascii: bool,
     style: str = "edge",
@@ -389,9 +389,9 @@ def _marker_char(marker: str, direction: str) -> str:
         elif direction == "up":
             return "▲"
         elif direction == "right":
-            return "►"
+            return "▶"
         else:
-            return "◄"
+            return "◀"
     elif marker == "*":
         return "◆"
     elif marker == "o":
@@ -400,7 +400,7 @@ def _marker_char(marker: str, direction: str) -> str:
 
 
 def _draw_relationship(
-    canvas: Canvas,
+    canvas: LayoutScene,
     rel: Relationship,
     positions: dict[str, tuple[int, int]],
     sizes: dict[str, tuple[int, int]],
@@ -571,7 +571,7 @@ def _note_box_size(note: Note) -> tuple[int, int]:
 
 
 def _draw_note_box(
-    canvas: Canvas, x: int, y: int, note: Note, cs: CharSet,
+    canvas: LayoutScene, x: int, y: int, note: Note, cs: CharSet,
 ) -> None:
     """Draw a note box (simple rectangle with text)."""
     width, height = _note_box_size(note)
@@ -678,13 +678,13 @@ def _layout_notes(
     return note_positions, adjusted, max_w + _MARGIN, max_h + _MARGIN
 
 
-def render_class_diagram(diagram: ClassDiagram, *, use_ascii: bool = False, padding_x: int = 2, gap: int = 4) -> Canvas:
-    """Render a ClassDiagram to a Canvas."""
+def render_class_diagram(diagram: ClassDiagram, *, use_ascii: bool = False, padding_x: int = 2, gap: int = 4) -> LayoutScene:
+    """Render a ClassDiagram to a LayoutScene."""
     cs = ASCII if use_ascii else UNICODE
 
     positions, sizes, width, height, layer_of = _compute_layout(diagram, padding_x=padding_x, gap=gap)
     if width <= 1 and not diagram.notes:
-        return Canvas(1, 1)
+        return LayoutScene(1, 1)
 
     # Position notes, adjusting class positions to make room
     note_positions, positions, width, height = _layout_notes(
@@ -704,7 +704,7 @@ def render_class_diagram(diagram: ClassDiagram, *, use_ascii: bool = False, padd
 
     exit_offsets = _compute_exit_offsets(diagram, layer_of)
 
-    canvas = Canvas(width, height)
+    canvas = LayoutScene(width, height)
 
     # Draw relationships first (background)
     for i, rel in enumerate(diagram.relationships):

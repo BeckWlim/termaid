@@ -203,7 +203,7 @@ class TestPieChartRendering:
         assert "Cats" in output
         assert "#" in output
         assert "*" in output
-        unicode_chars = set("┌┐└┘─│├┤┬┴┼╭╮╰╯►◄▲▼┄┆━┃╋█▓░▒")
+        unicode_chars = set("┌┐└┘─│├┤┬┴┼╭╮╰╯▶◀▲▼┄┆━┃╋█▓░▒")
         for ch in output:
             assert ch not in unicode_chars
 

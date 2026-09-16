@@ -7,7 +7,7 @@ from __future__ import annotations
 
 from ..model.kanban import Kanban
 from ..utils import display_width, truncate_to_width
-from .canvas import Canvas
+from ..layout.scene import LayoutScene
 from .charset import ASCII, UNICODE, CharSet
 
 
@@ -23,12 +23,12 @@ def render_kanban(
     use_ascii: bool = False,
     padding_x: int = _CARD_PAD,
     gap: int = _COL_GAP,
-) -> Canvas:
-    """Render a Kanban model to a Canvas."""
+) -> LayoutScene:
+    """Render a Kanban model to a LayoutScene."""
     cs = ASCII if use_ascii else UNICODE
 
     if not diagram.columns:
-        return Canvas(1, 1)
+        return LayoutScene(1, 1)
 
     # Compute column widths (based on widest card or column title).
     # Card text sits inside card borders, inset _COL_PAD from each column
@@ -56,7 +56,7 @@ def render_kanban(
     total_height = max(col_heights) if col_heights else 4
     total_width = sum(col_widths) + gap * (len(col_widths) - 1)
 
-    canvas = Canvas(total_width + 1, total_height + 1)
+    canvas = LayoutScene(total_width + 1, total_height + 1)
 
     # Draw each column with a rotating section style
     x = 0
@@ -70,7 +70,7 @@ def render_kanban(
 
 
 def _draw_column(
-    canvas: Canvas, cs: CharSet,
+    canvas: LayoutScene, cs: CharSet,
     col, x: int, y: int, w: int, h: int,
     use_ascii: bool,
     section_style: str = "subgraph",

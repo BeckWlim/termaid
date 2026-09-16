@@ -10,7 +10,7 @@ from copy import deepcopy
 from dataclasses import dataclass, replace
 
 from ..model.sequence import ActivateEvent, Block, BlockSection, DestroyEvent, Event, Message, Note, Participant, SequenceDiagram
-from .canvas import Canvas
+from ..layout.scene import LayoutScene
 from .charset import ASCII, UNICODE, CharSet
 from .shapes import draw_rectangle, draw_cylinder
 from ..utils import display_width, wrap_display_text
@@ -395,7 +395,7 @@ def _compute_layout(
 # ── Participant drawing functions ─────────────────────────────────
 
 def _put_centered_lines(
-    canvas: Canvas, start_row: int, center_col: int, text: str,
+    canvas: LayoutScene, start_row: int, center_col: int, text: str,
     style: str = "label",
 ) -> None:
     for offset, line in enumerate(_label_lines(text)):
@@ -407,7 +407,7 @@ def _put_centered_lines(
         )
 
 
-def _draw_actor(canvas: Canvas, cx: int, y: int, label: str, use_ascii: bool) -> None:
+def _draw_actor(canvas: LayoutScene, cx: int, y: int, label: str, use_ascii: bool) -> None:
     """Draw a stick-figure actor, bottom-aligned to y + _ACTOR_HEIGHT - 1."""
     style = "node"
     canvas.put(y, cx, "O", merge=False, style=style)
@@ -420,7 +420,7 @@ def _draw_actor(canvas: Canvas, cx: int, y: int, label: str, use_ascii: bool) ->
 
 
 def _draw_database(
-    canvas: Canvas, cx: int, y: int, width: int, height: int,
+    canvas: LayoutScene, cx: int, y: int, width: int, height: int,
     label: str, cs: CharSet,
 ) -> None:
     """Draw a cylinder (database) participant."""
@@ -429,7 +429,7 @@ def _draw_database(
 
 
 def _draw_queue(
-    canvas: Canvas, cx: int, y: int, width: int, height: int,
+    canvas: LayoutScene, cx: int, y: int, width: int, height: int,
     label: str, cs: CharSet, use_ascii: bool,
 ) -> None:
     """Draw a queue participant — box with doubled right border."""
@@ -464,7 +464,7 @@ def _draw_queue(
     _put_centered_lines(canvas, label_row, cx, label)
 
 
-def _draw_boundary(canvas: Canvas, cx: int, y: int, label: str, cs: CharSet, use_ascii: bool) -> None:
+def _draw_boundary(canvas: LayoutScene, cx: int, y: int, label: str, cs: CharSet, use_ascii: bool) -> None:
     """Draw a boundary symbol: small box with horizontal bar extending left."""
     style = "node"
     # Small 3x3 box centered on cx
@@ -493,7 +493,7 @@ def _draw_boundary(canvas: Canvas, cx: int, y: int, label: str, cs: CharSet, use
     _put_centered_lines(canvas, y + 4, cx, label)
 
 
-def _draw_control(canvas: Canvas, cx: int, y: int, label: str, cs: CharSet, use_ascii: bool) -> None:
+def _draw_control(canvas: LayoutScene, cx: int, y: int, label: str, cs: CharSet, use_ascii: bool) -> None:
     """Draw a control symbol: small circle with arrowhead above."""
     style = "node"
     # Arrowhead
@@ -514,7 +514,7 @@ def _draw_control(canvas: Canvas, cx: int, y: int, label: str, cs: CharSet, use_
     _put_centered_lines(canvas, y + 4, cx, label)
 
 
-def _draw_entity(canvas: Canvas, cx: int, y: int, label: str, cs: CharSet, use_ascii: bool) -> None:
+def _draw_entity(canvas: LayoutScene, cx: int, y: int, label: str, cs: CharSet, use_ascii: bool) -> None:
     """Draw an entity symbol: small circle with underline."""
     style = "node"
     # Small rounded box
@@ -535,7 +535,7 @@ def _draw_entity(canvas: Canvas, cx: int, y: int, label: str, cs: CharSet, use_a
 
 
 def _draw_collections(
-    canvas: Canvas, cx: int, y: int, width: int, height: int,
+    canvas: LayoutScene, cx: int, y: int, width: int, height: int,
     label: str, cs: CharSet, use_ascii: bool,
 ) -> None:
     """Draw a collections symbol: two overlapping rectangles."""
@@ -584,7 +584,7 @@ def _draw_collections(
 
 
 def _draw_participant_header(
-    canvas: Canvas, cx: int, bw: int, header_height: int,
+    canvas: LayoutScene, cx: int, bw: int, header_height: int,
     participant, cs: CharSet, use_ascii: bool,
 ) -> None:
     """Dispatch to the correct participant drawing function."""
@@ -669,8 +669,8 @@ def render_sequence(
     padding_x: int = 4,
     gap: int = 16,
     max_label_width: int | None = None,
-) -> Canvas:
-    """Render a SequenceDiagram to a Canvas."""
+) -> LayoutScene:
+    """Render a SequenceDiagram to a LayoutScene."""
     layout_diagram = deepcopy(diagram)
     cs = ASCII if use_ascii else UNICODE
     flat_events = _flatten_events(layout_diagram.events)
@@ -710,9 +710,9 @@ def render_sequence(
     row_offsets = layout.row_offsets
     block_bounds = layout.block_bounds
     if width == 0:
-        return Canvas(1, 1)
+        return LayoutScene(1, 1)
 
-    canvas = Canvas(width, height)
+    canvas = LayoutScene(width, height)
 
     # Compute activation ranges
     activation_ranges = _compute_activation_ranges(flat_events, row_offsets)
@@ -890,7 +890,7 @@ def _compute_block_bounds(
 
 
 def _draw_block_start(
-    canvas: Canvas,
+    canvas: LayoutScene,
     ev: _BlockStart,
     row: int,
     frame_bounds: tuple[int, int],
@@ -923,7 +923,7 @@ def _draw_block_start(
 
 
 def _draw_block_section(
-    canvas: Canvas,
+    canvas: LayoutScene,
     ev: _BlockSectionBreak,
     row: int,
     frame_bounds: tuple[int, int],
@@ -951,7 +951,7 @@ def _draw_block_section(
 
 
 def _draw_block_end(
-    canvas: Canvas,
+    canvas: LayoutScene,
     ev: _BlockEnd,
     row: int,
     frame_bounds: tuple[int, int],
@@ -1014,7 +1014,7 @@ def _note_bounds(
 
 
 def _draw_note(
-    canvas: Canvas,
+    canvas: LayoutScene,
     note: Note,
     row: int,
     col_centers: list[int],
@@ -1044,7 +1044,7 @@ def _draw_note(
 # ── Message drawing ──────────────────────────────────────────────
 
 def _draw_message(
-    canvas: Canvas,
+    canvas: LayoutScene,
     src_col: int,
     tgt_col: int,
     row: int,
@@ -1079,15 +1079,15 @@ def _draw_message(
             canvas.put(row, left, "<", merge=False, style="arrow")
             canvas.put(row, right, ">", merge=False, style="arrow")
         else:
-            canvas.put(row, left, "◄", merge=False, style="arrow")
-            canvas.put(row, right, "►", merge=False, style="arrow")
+            canvas.put(row, left, "◀", merge=False, style="arrow")
+            canvas.put(row, right, "▶", merge=False, style="arrow")
     elif msg.arrow_type == "arrow":
         if going_right:
-            arrow = ">" if use_ascii else "►"
+            arrow = ">" if use_ascii else "▶"
             canvas.put(row, right, arrow, merge=False, style="arrow")
             canvas.put(row, left, h_char, merge=False, style="edge")
         else:
-            arrow = "<" if use_ascii else "◄"
+            arrow = "<" if use_ascii else "◀"
             canvas.put(row, left, arrow, merge=False, style="arrow")
             canvas.put(row, right, h_char, merge=False, style="edge")
     elif msg.arrow_type == "cross":
@@ -1112,7 +1112,7 @@ def _draw_message(
 
 
 def _draw_self_message(
-    canvas: Canvas,
+    canvas: LayoutScene,
     col: int,
     row: int,
     msg: Message,
@@ -1143,7 +1143,7 @@ def _draw_self_message(
 
     # Arrowhead pointing back at lifeline
     if msg.arrow_type == "arrow":
-        arrow = "<" if use_ascii else "◄"
+        arrow = "<" if use_ascii else "◀"
         canvas.put(row + 1, col + 2, arrow, merge=False, style="arrow")
     elif msg.arrow_type == "cross":
         canvas.put(row + 1, col + 2, "x", merge=False, style="arrow")

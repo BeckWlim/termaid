@@ -362,7 +362,7 @@ class TestGitGraphRendering:
         )
         assert "o" in output  # ASCII commit marker
         assert "main" in output
-        unicode_chars = set("┌┐└┘─│├┤┬┴┼╭╮╰╯►◄▲▼┄┆━┃╋●✖■")
+        unicode_chars = set("┌┐└┘─│├┤┬┴┼╭╮╰╯▶◀▲▼┄┆━┃╋●✖■")
         for ch in output:
             assert ch not in unicode_chars
 

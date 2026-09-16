@@ -87,7 +87,7 @@ class TestAllDiagramInvariants:
         source = input_path.read_text().strip()
         output = render(source, use_ascii=True)
         assert len(output) > 0
-        box_chars = set("┌┐└┘─│├┤┬┴┼╭╮╰╯►◄▲▼┄┆━┃╋")
+        box_chars = set("┌┐└┘─│├┤┬┴┼╭╮╰╯▶◀▲▼┄┆━┃╋")
         used_box_chars = set(output) & box_chars
         assert not used_box_chars, (
             f"ASCII mode output for {name} contains unicode chars: {used_box_chars}"

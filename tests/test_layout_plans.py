@@ -29,7 +29,7 @@ def test_replacing_measured_text_does_not_reuse_stale_widths():
     assert original.width == 9
 
 
-@pytest.mark.parametrize('character', ['│', '─', '►', 'x', 'existing'])
+@pytest.mark.parametrize('character', ['│', '─', '▶', 'x', 'existing'])
 def test_rejected_label_plan_never_paints_fragments(character: str):
     canvas = Canvas(24, 8)
     canvas.put_text(3, 6, character, style='edge')
@@ -46,7 +46,7 @@ def test_batch_validates_late_geometry_before_painting_any_label():
     assert plan.add(TextPlacement('edge:0', 1, 1, ('first',)))
     assert plan.add(TextPlacement('edge:1', 3, 1, ('second',)))
     assert 'first' not in canvas.to_string()
-    canvas.put(3, 3, '►', style='arrow')
+    canvas.put(3, 3, '▶', style='arrow')
     before = canvas.to_string()
     with pytest.raises(ValueError, match='edge:1'):
         plan.paint(canvas)

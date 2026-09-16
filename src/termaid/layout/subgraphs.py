@@ -33,6 +33,11 @@ def expand_gaps_for_subgraphs(
         return frozenset(chain)
 
     node_chains = {nid: _get_chain(nid) for nid in graph.node_order}
+    extra_title_rows = {
+        bounds_id: max(0, len(subgraph.label.split("\n")) - 1)
+        for bounds_id in set().union(*node_chains.values())
+        if (subgraph := graph.find_subgraph_by_id(bounds_id)) is not None
+    }
 
     is_vertical = direction in (Direction.TB, Direction.TD)
 
@@ -67,17 +72,23 @@ def expand_gaps_for_subgraphs(
         depth_change = len(sgs1 ^ sgs2)
 
         if depth_change > 0:
-            extra = depth_change * SG_GAP_PER_LEVEL
+            extra = depth_change * SG_GAP_PER_LEVEL + sum(
+                extra_title_rows[sg_id] for sg_id in sgs1 ^ sgs2
+            )
             # Gap cells between the two node rows/columns
             gap_start = pos1 + 2
             gap_end = pos2 - 2
-            for gap in range(gap_start, gap_end + 1):
-                if is_vertical:
-                    cur = layout.row_heights.get(gap, 1)
-                    layout.row_heights[gap] = max(cur, extra)
-                else:
-                    cur = layout.col_widths.get(gap, 2)
-                    layout.col_widths[gap] = max(cur, extra)
+            gap_sizes = layout.row_heights if is_vertical else layout.col_widths
+            default_size = 1 if is_vertical else 2
+            available = sum(gap_sizes.get(gap, default_size) for gap in range(gap_start, gap_end + 1))
+            # Borders need space once per layer transition, not once for
+            # every routing lane inserted by crossing minimization.
+            if gap_start <= gap_end and available < extra:
+                gap_sizes[gap_end] = gap_sizes.get(gap_end, default_size) + extra - available
+            if not is_vertical and layout.width_budget is not None and gap_start <= gap_end:
+                # A three-cell lane's center coincides with the next frame
+                # at node_left - 2. Keep the route two cells off that frame.
+                gap_sizes[gap_end] = max(gap_sizes.get(gap_end, 1), 7)
 
     # --- Expand cross-direction gaps (sibling subgraphs) ---
     for i in range(len(sorted_cross) - 1):
@@ -132,38 +143,29 @@ def compute_subgraph_bounds(
         if not all_node_ids and not child_bounds:
             return None
 
-        min_x = float("inf")
-        min_y = float("inf")
-        max_x = 0
-        max_y = 0
-
-        for nid in all_node_ids:
-            if nid in layout.placements:
-                p = layout.placements[nid]
-                min_x = min(min_x, p.draw_x)
-                min_y = min(min_y, p.draw_y)
-                max_x = max(max_x, p.draw_x + p.draw_width)
-                max_y = max(max_y, p.draw_y + p.draw_height)
-
-        for cb in child_bounds:
-            min_x = min(min_x, cb.x)
-            min_y = min(min_y, cb.y)
-            max_x = max(max_x, cb.x + cb.width)
-            max_y = max(max_y, cb.y + cb.height)
-
-        if min_x == float("inf"):
+        content_boxes = [
+            (p.draw_x, p.draw_y, p.draw_x + p.draw_width, p.draw_y + p.draw_height)
+            for nid in all_node_ids if (p := layout.placements.get(nid)) is not None
+        ]
+        content_boxes.extend((cb.x, cb.y, cb.x + cb.width, cb.y + cb.height) for cb in child_bounds)
+        if not content_boxes:
             return None
-
-        content_width = int(max_x - min_x) + SG_BORDER_PAD * 2
-        label_width = display_width(sg.label) + 4
+        min_x = min(box[0] for box in content_boxes)
+        min_y = min(box[1] for box in content_boxes)
+        max_x = max(box[2] for box in content_boxes)
+        max_y = max(box[3] for box in content_boxes)
+        content_width = max_x - min_x + SG_BORDER_PAD * 2
+        title_lines = sg.label.split("\n")
+        title_height = SG_LABEL_HEIGHT + len(title_lines) - 1
+        label_width = max(map(display_width, title_lines)) + 4
         final_width = max(content_width, label_width)
 
         bounds = SubgraphBounds(
             subgraph=sg,
-            x=int(min_x) - SG_BORDER_PAD,
-            y=int(min_y) - SG_BORDER_PAD - SG_LABEL_HEIGHT,
+            x=min_x - SG_BORDER_PAD,
+            y=min_y - SG_BORDER_PAD - title_height,
             width=final_width,
-            height=int(max_y - min_y) + SG_BORDER_PAD * 2 + SG_LABEL_HEIGHT,
+            height=max_y - min_y + SG_BORDER_PAD * 2 + title_height,
         )
         return bounds
 

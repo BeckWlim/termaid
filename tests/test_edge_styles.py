@@ -19,7 +19,7 @@ class TestUnicodeSolidEdges:
     def test_unidirectional_lr(self):
         output = render("graph LR\n  A --> B")
         assert "─" in output, "Should use ─ for solid horizontal line"
-        assert "►" in output, "Should have right arrow at end"
+        assert "▶" in output, "Should have right arrow at end"
 
     def test_unidirectional_td(self):
         output = render("graph TD\n  A --> B")
@@ -28,8 +28,8 @@ class TestUnicodeSolidEdges:
 
     def test_bidirectional_lr(self):
         output = render("graph LR\n  A <--> B")
-        assert "◄" in output, "Should have left arrow at start"
-        assert "►" in output, "Should have right arrow at end"
+        assert "◀" in output, "Should have left arrow at start"
+        assert "▶" in output, "Should have right arrow at end"
         assert "─" in output, "Should use solid line between arrows"
 
     def test_bidirectional_td(self):
@@ -39,8 +39,8 @@ class TestUnicodeSolidEdges:
 
     def test_no_arrow_lr(self):
         output = render("graph LR\n  A --- B")
-        assert "►" not in output, "No-arrow edge should not have ►"
-        assert "◄" not in output, "No-arrow edge should not have ◄"
+        assert "▶" not in output, "No-arrow edge should not have ▶"
+        assert "◀" not in output, "No-arrow edge should not have ◀"
         assert "├" in output, "Should have T-junction at start"
         assert "┤" in output, "Should have T-junction at end"
         assert "─" in output, "Should use solid line"
@@ -57,7 +57,7 @@ class TestUnicodeDottedEdges:
     def test_unidirectional_lr(self):
         output = render("graph LR\n  A -.-> B")
         assert "┄" in output, "Should use ┄ for dotted horizontal line"
-        assert "►" in output, "Should have arrow at end"
+        assert "▶" in output, "Should have arrow at end"
 
     def test_unidirectional_td(self):
         output = render("graph TD\n  A -.-> B")
@@ -66,14 +66,14 @@ class TestUnicodeDottedEdges:
 
     def test_bidirectional_lr(self):
         output = render("graph LR\n  A <-.-> B")
-        assert "◄" in output, "Should have left arrow at start"
-        assert "►" in output, "Should have right arrow at end"
+        assert "◀" in output, "Should have left arrow at start"
+        assert "▶" in output, "Should have right arrow at end"
         assert "┄" in output, "Should use dotted line between arrows"
 
     def test_no_arrow_lr(self):
         output = render("graph LR\n  A -.- B")
-        assert "►" not in output, "No-arrow dotted should not have ►"
-        assert "◄" not in output, "No-arrow dotted should not have ◄"
+        assert "▶" not in output, "No-arrow dotted should not have ▶"
+        assert "◀" not in output, "No-arrow dotted should not have ◀"
         assert "┄" in output, "Should use dotted line"
 
 
@@ -83,7 +83,7 @@ class TestUnicodeThickEdges:
     def test_unidirectional_lr(self):
         output = render("graph LR\n  A ==> B")
         assert "━" in output, "Should use ━ for thick horizontal line"
-        assert "►" in output, "Should have arrow at end"
+        assert "▶" in output, "Should have arrow at end"
 
     def test_unidirectional_td(self):
         output = render("graph TD\n  A ==> B")
@@ -92,14 +92,14 @@ class TestUnicodeThickEdges:
 
     def test_bidirectional_lr(self):
         output = render("graph LR\n  A <==> B")
-        assert "◄" in output, "Should have left arrow at start"
-        assert "►" in output, "Should have right arrow at end"
+        assert "◀" in output, "Should have left arrow at start"
+        assert "▶" in output, "Should have right arrow at end"
         assert "━" in output, "Should use thick line between arrows"
 
     def test_no_arrow_lr(self):
         output = render("graph LR\n  A === B")
-        assert "►" not in output, "No-arrow thick should not have ►"
-        assert "◄" not in output, "No-arrow thick should not have ◄"
+        assert "▶" not in output, "No-arrow thick should not have ▶"
+        assert "◀" not in output, "No-arrow thick should not have ◀"
         assert "━" in output, "Should use thick line"
 
 
@@ -117,15 +117,15 @@ class TestMixedEdgeStyles:
     def test_all_bidirectional_styles(self):
         output = render("graph LR\n  A <--> B\n  C <-.-> D\n  E <==> F")
         # All should have both arrows
-        arrows_left = output.count("◄")
-        arrows_right = output.count("►")
+        arrows_left = output.count("◀")
+        arrows_right = output.count("▶")
         assert arrows_left >= 3, f"Expected 3+ left arrows, got {arrows_left}"
         assert arrows_right >= 3, f"Expected 3+ right arrows, got {arrows_right}"
 
     def test_mixed_arrow_and_no_arrow(self):
         output = render("graph LR\n  A --> B\n  B --- C\n  C -.-> D\n  D -.- E")
         # A-->B and C-.->D have arrows, B---C and D-.-E don't
-        assert "►" in output
+        assert "▶" in output
         for label in ["A", "B", "C", "D", "E"]:
             assert label in output
 
@@ -182,7 +182,7 @@ class TestAsciiThickEdges:
 class TestAsciiNoUnicodeChars:
     """Verify ASCII mode never produces unicode box-drawing characters."""
 
-    UNICODE_BOX_CHARS = set("┌┐└┘─│├┤┬┴┼╭╮╰╯►◄▲▼┄┆━┃╋●◉")
+    UNICODE_BOX_CHARS = set("┌┐└┘─│├┤┬┴┼╭╮╰╯▶◀▲▼┄┆━┃╋●◉")
 
     @pytest.mark.parametrize("source", [
         "graph LR\n  A --> B",
@@ -254,8 +254,8 @@ class TestLabeledEdges:
     def test_bidirectional_label(self):
         output = render("graph LR\n  A <-->|both| B")
         assert "both" in output
-        assert "◄" in output
-        assert "►" in output
+        assert "◀" in output
+        assert "▶" in output
 
     def test_td_label(self):
         output = render("graph TD\n  A -->|down| B")

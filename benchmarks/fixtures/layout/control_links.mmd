@@ -1,0 +1,10 @@
+flowchart TB
+    App --> Client
+    Master -.->|Descriptors| Client
+    Master -.->|Replies| Storage
+    Client <-->|Transfer| Memory
+    Client <-->|Blocks| SSD
+    Client <-->|Files| DFS
+    Client -->|Restore| Storage
+    Memory -->|Offload| Storage
+    Storage <-->|Local I/O| Disk

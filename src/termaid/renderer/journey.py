@@ -8,7 +8,7 @@ from __future__ import annotations
 
 from ..model.journey import Journey
 from ..utils import display_width
-from .canvas import Canvas
+from ..layout.scene import LayoutScene
 
 
 _FACE = {
@@ -35,10 +35,10 @@ def render_journey(
     padding_x: int = 2,
     gap: int = 1,
     rounded: bool = True,
-) -> Canvas:
-    """Render a Journey model to a Canvas."""
+) -> LayoutScene:
+    """Render a Journey model to a LayoutScene."""
     if not diagram.sections:
-        return Canvas(1, 1)
+        return LayoutScene(1, 1)
 
     faces = _FACE_ASCII if use_ascii else _FACE
     hz = "-" if use_ascii else "─"
@@ -49,7 +49,7 @@ def render_journey(
         tl, tr, bl, br = "╭", "╮", "╰", "╯"
     else:
         tl, tr, bl, br = "┌", "┐", "└", "┘"
-    arrow = ">" if use_ascii else "►"
+    arrow = ">" if use_ascii else "▶"
     dot = "o" if use_ascii else "●"
 
     # Collect all tasks and compute widths
@@ -98,7 +98,7 @@ def render_journey(
     face_row = task_row + 3
     total_h = face_row + 2
 
-    canvas = Canvas(total_w + 1, total_h + 1)
+    canvas = LayoutScene(total_w + 1, total_h + 1)
 
     # Title
     if diagram.title:

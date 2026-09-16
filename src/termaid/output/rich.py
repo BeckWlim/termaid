@@ -5,6 +5,7 @@ from typing import TYPE_CHECKING
 
 from ..graph.model import Graph
 from ..renderer.canvas import Canvas
+from ..layout.engine import DiagramPlan
 from ..renderer.draw import render_graph_canvas
 from ..renderer.themes import get_theme
 
@@ -94,6 +95,12 @@ def render_rich(
     if canvas is None:
         return Text("")
 
+    return render_plan_rich(DiagramPlan.from_scene(canvas, graph=graph), theme=theme)
+
+
+def render_plan_rich(canvas: DiagramPlan, theme: str = "default") -> Text:
+    from rich.text import Text
+
     th = get_theme(theme)
 
     # Map style keys to Rich style strings
@@ -110,34 +117,10 @@ def render_rich(
         "italic_label": f"italic {th.label}",
     }
 
-    # Add class-based styles
-    for class_name, props in graph.class_defs.items():
-        rich_style = _css_to_rich_style(props)
+    for rule in canvas.styles:
+        rich_style = _css_to_rich_style(dict(rule.properties))
         if rich_style:
-            style_map[f"class:{class_name}"] = rich_style
-
-    # Add per-node inline styles
-    for nid, props in graph.node_styles.items():
-        rich_style = _css_to_rich_style(props)
-        if rich_style:
-            style_map[f"nodestyle:{nid}"] = rich_style
-
-    # Add per-edge link styles
-    default_link_props = graph.link_styles.get(-1)
-    for idx, props in graph.link_styles.items():
-        if idx >= 0:
-            rich_style = _css_to_rich_style(props)
-            if rich_style:
-                style_map[f"linkstyle:{idx}"] = rich_style
-    # For edges not explicitly styled but with a default linkStyle
-    if default_link_props:
-        default_link_style = _css_to_rich_style(default_link_props)
-        if default_link_style:
-            # Map all edge indices that aren't explicitly styled
-            for i in range(len(graph.edges)):
-                key = f"linkstyle:{i}"
-                if key not in style_map:
-                    style_map[key] = default_link_style
+            style_map[rule.key] = rich_style
 
     styled_pairs = canvas.to_styled_pairs()
 
@@ -195,7 +178,7 @@ def render_rich(
 
 
 def render_sequence_rich(
-    canvas: Canvas,
+    canvas: Canvas | DiagramPlan,
     theme: str = "default",
 ) -> Text:
     """Render a pre-built Canvas (e.g. from a sequence diagram) as Rich Text with colors."""

@@ -78,7 +78,7 @@ class TestFlowchartParserEdgeCases:
         """Graph with a single node and no edges should render cleanly."""
         output = render("graph LR\n  A[Lonely]")
         assert "Lonely" in output
-        assert "►" not in output
+        assert "▶" not in output
 
     def test_many_disconnected_nodes(self):
         """Multiple disconnected nodes should all appear."""

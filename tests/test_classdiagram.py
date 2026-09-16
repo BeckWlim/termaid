@@ -219,7 +219,7 @@ class TestClassDiagramRendering:
             use_ascii=True,
         )
         assert "Foo" in output
-        unicode_chars = set("┌┐└┘─│├┤┬┴┼╭╮╰╯►◄▲▼┄┆━┃╋")
+        unicode_chars = set("┌┐└┘─│├┤┬┴┼╭╮╰╯▶◀▲▼┄┆━┃╋")
         for ch in output:
             assert ch not in unicode_chars
 

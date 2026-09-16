@@ -1,0 +1,31 @@
+flowchart LR
+    App[Application: vLLM / SGLang]
+
+    subgraph Control [Control plane]
+        Master[MasterService]
+    end
+
+    subgraph Data [Data plane]
+        Client[Pod A: Client / RealClient]
+
+        subgraph PodB [Pod B: shared DRAM and local SSD]
+            Memory[MEMORY: shared DRAM]
+            Offload[Client B / FileStorage]
+            SSD[LOCAL_DISK: offload SSD]
+            Memory -->|Offload| Offload
+            Offload -->|Local I/O| SSD
+        end
+
+        NoF[NOF_SSD: shared NVMe-oF SSD]
+        DFS[DFS: shared filesystem]
+        Disk[DISK: backend files]
+    end
+
+    App -->|Put / Get| Client
+    Master -.->|Descriptors via MasterClient| Client
+    Master -.->|Offload task replies| Offload
+    Client -->|Transfer Engine: RDMA / TCP| Memory
+    Client -->|Restore RPC and TE pull| Offload
+    Client -->|SPDK: NVMe-oF| NoF
+    Client -->|DFS backend: POSIX / HF3FS| DFS
+    Client -->|File backend I/O| Disk

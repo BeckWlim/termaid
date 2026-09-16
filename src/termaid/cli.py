@@ -6,12 +6,58 @@ import json
 import os
 import shutil
 import sys
-from typing import Callable, TypeVar
+from contextlib import nullcontext
+from typing import TYPE_CHECKING, Callable, NoReturn, TypeVar
+from .diagnostics import Diagnostic
 from .utils import display_width
+from .layout.engine import DiagramPlan
 from .layout.fitting import score_render
 
+if TYPE_CHECKING:
+    from rich.text import Text
 
-RenderResult = TypeVar("RenderResult")
+
+RenderResult = TypeVar("RenderResult", str, DiagramPlan)
+
+
+class _ArgumentParser(argparse.ArgumentParser):
+    diagnostics_format = "text"
+
+    def error(self, message: str) -> NoReturn:
+        if self.diagnostics_format == "json":
+            Diagnostic("invalid_arguments", message, exit_code=2).emit("json")
+            self.exit(2)
+        super().error(message)
+
+
+def _report(
+    args: argparse.Namespace, code: str, message: str,
+    *, exit_code: int = 1, **details: str | int,
+) -> int:
+    return Diagnostic(code, message, exit_code=exit_code, details=details).emit(
+        args.diagnostics_format
+    )
+
+
+def _check_output(text: str, args: argparse.Namespace) -> int | None:
+    if not text.strip():
+        return _report(args, "render_empty", "Input produced no renderable diagram.")
+    actual_width = _max_line_width(text)
+    actual_height = len(text.splitlines())
+    if args.strict_width and args.width is not None and actual_width > args.width:
+        return _report(
+            args, "width_exceeded",
+            f"diagram is {actual_width} cols wide but target is {args.width}. "
+            "Try: less -S, or use 'graph TD' for vertical layout.",
+            exit_code=2, actual_width=actual_width, max_width=args.width,
+        )
+    if args.max_height is not None and actual_height > args.max_height:
+        return _report(
+            args, "height_exceeded",
+            f"diagram exceeds {args.max_height} output rows.",
+            exit_code=2, actual_height=actual_height, max_height=args.max_height,
+        )
+    return None
 
 
 def _get_version() -> str:
@@ -29,14 +75,9 @@ def _max_line_width(text: str) -> int:
     return max((display_width(line) for line in text.split("\n")), default=0)
 
 
-def _plain(result) -> str:
-    """Plain-text view of a render result (str or rich.text.Text)."""
-    if isinstance(result, dict) and result.get("version") == 1:
-        return "\n".join(
-            "".join(chunk["text"] for chunk in line)
-            for line in result.get("lines", [])
-        )
-    return getattr(result, "plain", result)
+def _plain(result: str | DiagramPlan) -> str:
+    """Measure canonical geometry, independently of the output adapter."""
+    return result if isinstance(result, str) else result.to_string()
 
 
 def _auto_fit(
@@ -124,21 +165,23 @@ def _auto_fit(
             return best_result
 
         if args.fit_mode == "reflow":
-            vertical_result = render_candidate(gap=1, padding_x=0, label_width=5,
+            vertical_budget = max(1, min(64, width_limit - 2))
+            vertical_result = render_candidate(gap=1, padding_x=0, label_width=vertical_budget,
                                                force_vertical=True)
             vertical_score = score_render(_plain(vertical_result), width_limit,
-                                          label_budget=5, height_limit=args.max_height)
+                                          label_budget=vertical_budget, height_limit=args.max_height)
             if vertical_score < best_score:
                 best_result, best_score = vertical_result, vertical_score
 
-    if best_score.width_overflow > 0:
-        level = "Error" if args.strict_width else "Warning"
-        print(
-            f"{level}: diagram is {best_score.width} cols wide "
+    if best_score.width_overflow > 0 and not args.strict_width:
+        Diagnostic(
+            "width_exceeded",
+            f"diagram is {best_score.width} cols wide "
             f"but target is {width_limit}. "
             f"Try: less -S, or use 'graph TD' for vertical layout.",
-            file=sys.stderr,
-        )
+            exit_code=0, severity="warning",
+            details={"actual_width": best_score.width, "max_width": width_limit},
+        ).emit(args.diagnostics_format)
     return best_result
 
 
@@ -149,17 +192,19 @@ def _read_source(args: argparse.Namespace) -> str | None:
             with open(args.file, encoding="utf-8") as f:
                 return f.read()
         except FileNotFoundError:
-            print(f"Error: File not found: {args.file}", file=sys.stderr)
+            _report(args, "input_not_found", f"File not found: {args.file}", path=args.file)
             return None
         except (OSError, UnicodeDecodeError) as e:
-            print(f"Error reading file: {e}", file=sys.stderr)
+            _report(args, "input_read_failed", f"Error reading file: {e}", path=args.file)
             return None
     elif not sys.stdin.isatty():
-        return sys.stdin.read()
+        try:
+            return sys.stdin.read()
+        except (OSError, UnicodeDecodeError) as e:
+            _report(args, "input_read_failed", f"Error reading stdin: {e}")
+            return None
     else:
-        print("Error: No input provided. Pass a file or pipe input.", file=sys.stderr)
-        print("Usage: termaid diagram.mmd", file=sys.stderr)
-        print("       echo 'graph LR; A-->B' | termaid", file=sys.stderr)
+        _report(args, "input_missing", "No input provided. Pass a file or pipe input.")
         return None
 
 
@@ -174,9 +219,19 @@ def _use_color(args: argparse.Namespace) -> bool:
 
 def main(argv: list[str] | None = None) -> int:
     """Main CLI entry point."""
-    parser = argparse.ArgumentParser(
+    # Resolve the diagnostic transport before parsing other options, so even
+    # argparse failures can be consumed by an editor's process callback.
+    diagnostic_parser = argparse.ArgumentParser(add_help=False, allow_abbrev=False)
+    diagnostic_parser.add_argument("--diagnostics-format", default="text")
+    diagnostic_args, _ = diagnostic_parser.parse_known_args(argv)
+    parser = _ArgumentParser(
         prog="termaid",
         description="Render Mermaid diagrams as Unicode art in the terminal",
+    )
+    parser.diagnostics_format = diagnostic_args.diagnostics_format
+    parser.add_argument(
+        "--diagnostics-format", choices=["text", "json"], default="text",
+        help="Emit human-readable diagnostics or versioned JSON lines on stderr.",
     )
     parser.add_argument(
         "file",
@@ -213,8 +268,8 @@ def main(argv: list[str] | None = None) -> int:
         help="Target output width in terminal display cells.",
     )
     parser.add_argument(
-        "--arrow-position", choices=("end", "middle"), default="end",
-        help="Flowchart arrowheads: at endpoints (default) or along clear middle segments",
+        "--arrow-position", choices=("end", "middle", "border"), default="end",
+        help="Graph arrowheads: border endpoints (default), middle segments, or explicit border placement",
     )
     parser.add_argument(
         "--uniform-nodes", action="store_true",
@@ -314,11 +369,11 @@ def main(argv: list[str] | None = None) -> int:
     args = parser.parse_args(argv)
 
     if args.strict_width and args.width is None:
-        print("Error: --strict-width requires --width.", file=sys.stderr)
-        return 2
+        return _report(args, "invalid_arguments", "--strict-width requires --width.", exit_code=2)
+    if args.width is not None and args.width < 1:
+        return _report(args, "invalid_arguments", "--width must be positive.", exit_code=2)
     if args.max_height is not None and args.max_height < 1:
-        print("Error: --max-height must be positive.", file=sys.stderr)
-        return 2
+        return _report(args, "invalid_arguments", "--max-height must be positive.", exit_code=2)
 
     if args.themes:
         return _list_themes()
@@ -327,196 +382,104 @@ def main(argv: list[str] | None = None) -> int:
         return _run_demo(args)
 
     # Read input
-    source = _read_source(args)
-    if source is None:
+    raw_source = _read_source(args)
+    if raw_source is None:
         return 1
 
-    source = source.strip()
-    if not source:
-        print("Error: Empty input.", file=sys.stderr)
-        return 1
+    normalized_source = raw_source.strip()
+    if not normalized_source:
+        return _report(args, "input_empty", "Empty input.")
 
     # JSON ingest: convert structured data to Mermaid syntax
     if args.json:
         try:
             from .ingest import json_to_mermaid
-            source = json_to_mermaid(source, args.json)
+            diagram_source = json_to_mermaid(normalized_source, args.json)
         except Exception as e:
-            print(f"Error converting JSON to {args.json}: {e}", file=sys.stderr)
-            return 1
+            return _report(args, "input_conversion_failed", f"Error converting JSON to {args.json}: {e}")
+    else:
+        diagram_source = normalized_source
 
     # TUI mode
     if args.tui:
-        return _run_tui(source, args)
+        return _run_tui(diagram_source, args)
 
     # --show-ids: patch node labels before rendering
-    render_source = source
-    if args.show_ids:
-        render_source = _apply_show_ids(source)
+    render_source = _apply_show_ids(diagram_source) if args.show_ids else diagram_source
 
-    # Render
-    from termaid import render, render_rich
-    from termaid.output.styled import render_styled
-
-    if args.output_format == "styled-json":
-        try:
-            styled_result = render_styled(
-                render_source,
-                use_ascii=args.ascii,
-                padding_x=args.padding_x,
-                padding_y=args.padding_y,
-                rounded_edges=not args.sharp_edges,
-                gap=args.gap,
-                inline_edge_labels=args.inline_edge_labels,
-                uniform_nodes=args.uniform_nodes,
-                arrow_position=args.arrow_position,
-                max_width=args.width,
-            )
-            styled_result = _auto_fit(
-                styled_result,
-                render_source,
-                args,
-                render_fn=render_styled,
-                target_width=args.width,
-            )
-            plain_result = _plain(styled_result)
-            if (
-                args.strict_width
-                and args.width is not None
-                and _max_line_width(plain_result) > args.width
-            ):
-                return 2
-            if (
-                args.max_height is not None
-                and len(plain_result.splitlines()) > args.max_height
-            ):
-                print(
-                    f"Error: diagram exceeds {args.max_height} output rows.",
-                    file=sys.stderr,
-                )
-                return 2
-            serialized = json.dumps(
-                styled_result, ensure_ascii=False, separators=(",", ":")
-            )
-            if args.output:
-                with open(args.output, "w", encoding="utf-8") as f:
-                    f.write(serialized + "\n")
-            else:
-                print(serialized)
-        except OSError as e:
-            print(f"Error writing to {args.output}: {e}", file=sys.stderr)
-            return 1
-        except Exception as e:
-            print(f"Error rendering diagram: {e}", file=sys.stderr)
-            return 1
-        return 0
-
-    use_color = _use_color(args)
-    if use_color:
-        try:
-            from rich import print as rprint
-            from rich.console import Console
-        except ImportError:
-            print("Error: 'rich' package required for --theme. Install with: pip install termaid[rich]", file=sys.stderr)
-            return 1
+    # Every output format fits and validates the same immutable plan. Adapters
+    # serialize only the selected candidate; they never participate in fitting.
+    from .layout.engine import plan
 
     try:
-        if use_color:
-            def render_color(src: str, **kwargs):
-                return render_rich(src, theme=args.theme or "default", **kwargs)
+        initial_plan = plan(
+            render_source,
+            use_ascii=args.ascii,
+            padding_x=args.padding_x,
+            padding_y=args.padding_y,
+            rounded_edges=not args.sharp_edges,
+            gap=args.gap,
+            inline_edge_labels=args.inline_edge_labels,
+            uniform_nodes=args.uniform_nodes,
+            arrow_position=args.arrow_position,
+            max_width=args.width,
+        )
+        fitted_plan = _auto_fit(
+            initial_plan, render_source, args, render_fn=plan,
+            target_width=args.width,
+        )
+        plain_output = fitted_plan.to_string()
+        constraint_exit_code = _check_output(plain_output, args)
+        if constraint_exit_code is not None:
+            return constraint_exit_code
+    except Exception as error:
+        return _report(
+            args, "render_failed", f"Error rendering diagram: {error}",
+            exception_type=type(error).__name__,
+        )
 
-            rich_result = render_color(
-                render_source,
-                use_ascii=args.ascii,
-                padding_x=args.padding_x,
-                padding_y=args.padding_y,
-                rounded_edges=not args.sharp_edges,
-                gap=args.gap,
-                inline_edge_labels=args.inline_edge_labels,
-                uniform_nodes=args.uniform_nodes,
-                arrow_position=args.arrow_position,
-                max_width=args.width,
+    use_color = args.output_format == "text" and _use_color(args)
+    rich_output: Text | None = None
+    try:
+        if args.output_format == "styled-json":
+            serialized_output = json.dumps(
+                fitted_plan.to_styled(), ensure_ascii=False, separators=(",", ":"),
             )
-            rich_result = _auto_fit(
-                rich_result, render_source, args,
-                render_fn=render_color,
-                target_width=args.width,
-            )
-            if (
-                args.strict_width
-                and args.width is not None
-                and _max_line_width(_plain(rich_result)) > args.width
-            ):
-                return 2
-            if (
-                args.max_height is not None
-                and len(_plain(rich_result).splitlines()) > args.max_height
-            ):
-                print(
-                    f"Error: diagram exceeds {args.max_height} output rows.",
-                    file=sys.stderr,
-                )
-                return 2
-            if args.output:
-                try:
-                    with open(args.output, "w", encoding="utf-8") as f:
-                        console = Console(
-                            file=f,
-                            force_terminal=True,
-                            width=max(_max_line_width(_plain(rich_result)), 80),
-                        )
-                        console.print(rich_result)
-                except OSError as e:
-                    print(f"Error writing to {args.output}: {e}", file=sys.stderr)
-                    return 1
-            else:
-                rprint(rich_result)
+        elif use_color:
+            rich_output = fitted_plan.to_rich(theme=args.theme or "default")
+            serialized_output = plain_output
         else:
-            result = render(
-                render_source,
-                use_ascii=args.ascii,
-                padding_x=args.padding_x,
-                padding_y=args.padding_y,
-                rounded_edges=not args.sharp_edges,
-                gap=args.gap,
-                inline_edge_labels=args.inline_edge_labels,
-                uniform_nodes=args.uniform_nodes,
-                arrow_position=args.arrow_position,
-                max_width=args.width,
-            )
-            result = _auto_fit(
-                result, render_source, args,
-                render_fn=render,
-                target_width=args.width,
-            )
-            if (
-                args.strict_width
-                and args.width is not None
-                and _max_line_width(result) > args.width
-            ):
-                return 2
-            if (
-                args.max_height is not None
-                and len(result.splitlines()) > args.max_height
-            ):
-                print(
-                    f"Error: diagram exceeds {args.max_height} output rows.",
-                    file=sys.stderr,
-                )
-                return 2
-            if args.output:
-                try:
-                    with open(args.output, "w", encoding="utf-8") as f:
-                        f.write(result + "\n")
-                except OSError as e:
-                    print(f"Error writing to {args.output}: {e}", file=sys.stderr)
-                    return 1
-            else:
-                print(result)
-    except Exception as e:
-        print(f"Error rendering diagram: {e}", file=sys.stderr)
-        return 1
+            serialized_output = plain_output
+    except ImportError:
+        return _report(
+            args, "dependency_missing",
+            "'rich' package required for --theme. Install with: pip install termaid[rich]",
+            dependency="rich",
+        )
+    except Exception as error:
+        return _report(
+            args, "render_failed", f"Error serializing diagram: {error}",
+            exception_type=type(error).__name__,
+        )
 
+    try:
+        output_context = (open(args.output, "w", encoding="utf-8") if args.output
+                          else nullcontext(sys.stdout))
+        with output_context as output_file:
+            if rich_output is not None:
+                from rich.console import Console
+                console = Console(
+                    file=output_file, force_terminal=True if args.output else None,
+                    width=max(fitted_plan.width, 80) if args.output else None,
+                )
+                console.print(rich_output)
+            else:
+                output_file.write(serialized_output + "\n")
+    except OSError as error:
+        return _report(
+            args, "output_write_failed", f"Error writing output: {error}",
+            path=args.output or "<stdout>",
+        )
     return 0
 
 
@@ -527,8 +490,7 @@ def _run_tui(source: str, args: argparse.Namespace) -> int:
         from textual.widgets import Static
         from termaid import render as _render
     except ImportError:
-        print("Error: 'textual' package required for --tui. Install with: pip install termaid[tui]", file=sys.stderr)
-        return 1
+        return _report(args, "dependency_missing", "'textual' package required for --tui. Install with: pip install termaid[tui]", dependency="textual")
 
     class DiagramApp(App):
         CSS = "Static { width: auto; height: auto; }"
@@ -626,9 +588,7 @@ def _run_demo(args: argparse.Namespace) -> int:
     elif demo_type in _DEMO_SOURCES:
         keys = [demo_type]
     else:
-        print(f"Unknown demo type: {demo_type}", file=sys.stderr)
-        print(f"Available: all, {', '.join(_DEMO_SOURCES.keys())}", file=sys.stderr)
-        return 1
+        return _report(args, "invalid_arguments", f"Unknown demo type: {demo_type}. Available: all, {', '.join(_DEMO_SOURCES.keys())}")
 
     use_color = _use_color(args)
 

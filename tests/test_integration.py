@@ -21,7 +21,7 @@ class TestBasicRendering:
         output = render("graph LR\n  A --> B")
         assert "A" in output
         assert "B" in output
-        assert "►" in output  # Arrow
+        assert "▶" in output  # Arrow
 
     def test_simple_td(self):
         output = render("graph TD\n  A --> B")
@@ -33,7 +33,7 @@ class TestBasicRendering:
         output = render("graph LR\n  A")
         assert "A" in output
         # No arrows for single node
-        assert "►" not in output
+        assert "▶" not in output
 
     def test_chain(self):
         output = render("graph LR\n  A --> B --> C --> D --> E")
@@ -127,17 +127,17 @@ class TestNodeShapes:
 class TestEdgeTypes:
     def test_solid_arrow(self):
         output = render("graph LR\n  A --> B")
-        assert "►" in output
+        assert "▶" in output
 
     def test_dotted_arrow(self):
         output = render("graph LR\n  A -.-> B")
         assert "┄" in output, "Dotted arrow should use ┄ character"
-        assert "►" in output, "Dotted arrow should have arrowhead"
+        assert "▶" in output, "Dotted arrow should have arrowhead"
 
     def test_thick_arrow(self):
         output = render("graph LR\n  A ==> B")
         assert "━" in output, "Thick arrow should use ━ character"
-        assert "►" in output, "Thick arrow should have arrowhead"
+        assert "▶" in output, "Thick arrow should have arrowhead"
 
     def test_mixed_styles(self):
         output = render("graph LR\n  A --> B\n  B -.-> C\n  C ==> D")
@@ -196,7 +196,10 @@ class TestEdgeLabels:
             "open direct URL",
             "page content with source identity",
         ):
-            assert label in output
+            assert all(word in output for word in label.split())
+        # The return sentence wraps beside its own lane instead of occupying
+        # the shared Model/Search corridor.
+        assert "page content with" in output and "source identity" in output
 
     def test_dotted_labels_avoid_crossing_routes(self):
         """Dotted edge labels must remain intact around dense crossing routes."""
@@ -298,7 +301,7 @@ class TestAsciiMode:
 
     def test_ascii_no_unicode(self):
         output = render("graph LR\n  A --> B --> C", use_ascii=True)
-        unicode_chars = set("┌┐└┘─│├┤┬┴┼╭╮╰╯►◄▲▼┄┆━┃╋")
+        unicode_chars = set("┌┐└┘─│├┤┬┴┼╭╮╰╯▶◀▲▼┄┆━┃╋")
         for ch in output:
             assert ch not in unicode_chars, f"Unicode char '{ch}' in ASCII output"
 
@@ -379,7 +382,7 @@ class TestComplexGraphs:
 
         output_open = render("flowchart LR\n    A --- B")
         assert "─" in output_open, "Open link should use ─"
-        assert "►" not in output_open, "Open link should not have arrowhead"
+        assert "▶" not in output_open, "Open link should not have arrowhead"
 
         output_dotted = render("flowchart LR\n    A -.-> B")
         assert "┄" in output_dotted, "Dotted link should use ┄"

@@ -9,7 +9,7 @@ from __future__ import annotations
 
 from ..model.packet import Packet
 from ..utils import display_width, truncate_to_width
-from .canvas import Canvas
+from ..layout.scene import LayoutScene
 
 
 _BITS_PER_COL = 3  # character columns per bit
@@ -21,10 +21,10 @@ def render_packet(
     use_ascii: bool = False,
     rounded: bool = True,
     padding_y: int = 1,
-) -> Canvas:
-    """Render a Packet model to a Canvas."""
+) -> LayoutScene:
+    """Render a Packet model to a LayoutScene."""
     if not diagram.fields:
-        return Canvas(1, 1)
+        return LayoutScene(1, 1)
 
     row_bits = diagram.row_bits
     cols_per_row = row_bits * _BITS_PER_COL
@@ -71,7 +71,7 @@ def render_packet(
     total_h = len(rows) * row_h
     total_w = margin + cols_per_row + 1
 
-    canvas = Canvas(total_w + 4, total_h + 10)  # extra for legend
+    canvas = LayoutScene(total_w + 4, total_h + 10)  # extra for legend
 
     for ri, row_fields in enumerate(rows):
         y_nums = ri * row_h

@@ -1,12 +1,12 @@
 """Renderer for gitGraph diagrams.
 
-Renders a GitGraph to a Canvas with branch lines, commit markers,
+Renders a GitGraph to a LayoutScene with branch lines, commit markers,
 labels, tags, and fork/merge connections.
 """
 from __future__ import annotations
 
 from ..model.gitgraph import Commit, GitGraph
-from .canvas import Canvas
+from ..layout.scene import LayoutScene
 from .charset import ASCII, UNICODE, CharSet
 from ..utils import display_width
 
@@ -152,7 +152,7 @@ def _compute_layout_lr(
 
 def _draw_lr(
     diagram: GitGraph,
-    canvas: Canvas,
+    canvas: LayoutScene,
     commit_col: dict[str, int],
     branch_row: dict[str, int],
     sorted_branches: list[str],
@@ -234,7 +234,7 @@ def _draw_lr(
 
 def _draw_tb(
     diagram: GitGraph,
-    canvas: Canvas,
+    canvas: LayoutScene,
     use_ascii: bool,
     cs: CharSet,
     *,
@@ -388,15 +388,15 @@ def _draw_tb(
                 canvas.put_text(row - 1, tag_col, tag_text, style="edge_label")
 
 
-def render_git_graph(diagram: GitGraph, *, use_ascii: bool = False) -> Canvas:
-    """Render a GitGraph to a Canvas."""
+def render_git_graph(diagram: GitGraph, *, use_ascii: bool = False) -> LayoutScene:
+    """Render a GitGraph to a LayoutScene."""
     cs = ASCII if use_ascii else UNICODE
 
     if not diagram.commits:
-        return Canvas(1, 1)
+        return LayoutScene(1, 1)
 
     if diagram.direction in ("TB", "BT"):
-        canvas = Canvas(1, 1)
+        canvas = LayoutScene(1, 1)
         _draw_tb(
             diagram, canvas, use_ascii, cs,
             bottom_to_top=(diagram.direction == "BT"),
@@ -407,7 +407,7 @@ def render_git_graph(diagram: GitGraph, *, use_ascii: bool = False) -> Canvas:
     commit_col, branch_row, sorted_branches, width, height, left_offset = (
         _compute_layout_lr(diagram, use_ascii)
     )
-    canvas = Canvas(width, height)
+    canvas = LayoutScene(width, height)
     _draw_lr(
         diagram, canvas, commit_col, branch_row, sorted_branches,
         left_offset, cs, use_ascii,

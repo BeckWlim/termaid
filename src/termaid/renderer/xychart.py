@@ -7,7 +7,7 @@ from __future__ import annotations
 
 from ..model.xychart import XYChart
 from ..utils import display_width
-from .canvas import Canvas
+from ..layout.scene import LayoutScene
 
 _CHART_H = 15     # chart area height (rows for data) in vertical mode
 _CHART_W = 50     # chart area width in horizontal mode
@@ -25,10 +25,10 @@ def render_xychart(
     *,
     use_ascii: bool = False,
     rounded: bool = True,
-) -> Canvas:
-    """Render an XYChart model to a Canvas."""
+) -> LayoutScene:
+    """Render an XYChart model to a LayoutScene."""
     if not diagram.datasets:
-        return Canvas(1, 1)
+        return LayoutScene(1, 1)
 
     # Horizontal mode only applies to bar-only charts.
     # Line charts always render vertically since they need a
@@ -43,7 +43,7 @@ def render_xychart(
 # Vertical chart (default)
 # ---------------------------------------------------------------------------
 
-def _render_vertical(diagram: XYChart, use_ascii: bool = False, rounded: bool = True) -> Canvas:
+def _render_vertical(diagram: XYChart, use_ascii: bool = False, rounded: bool = True) -> LayoutScene:
     bar_char = "#" if use_ascii else _BAR_CHAR
     bar_half = "=" if use_ascii else _BAR_HALF
     marker = "*" if use_ascii else _LINE_MARKER
@@ -58,7 +58,7 @@ def _render_vertical(diagram: XYChart, use_ascii: bool = False, rounded: bool = 
     for ds in diagram.datasets:
         all_values.extend(ds.values)
     if not all_values:
-        return Canvas(1, 1)
+        return LayoutScene(1, 1)
 
     max_val = max(all_values)
     min_val = min(0, min(all_values))
@@ -88,7 +88,7 @@ def _render_vertical(diagram: XYChart, use_ascii: bool = False, rounded: bool = 
     title_lines = 2 if diagram.title else 0
     total_h = _CHART_H + 4
 
-    canvas = Canvas(total_w + 1, total_h + title_lines + 1)
+    canvas = LayoutScene(total_w + 1, total_h + title_lines + 1)
     row_offset = title_lines
 
     # Title
@@ -168,7 +168,7 @@ def _render_vertical(diagram: XYChart, use_ascii: bool = False, rounded: bool = 
 # Horizontal chart
 # ---------------------------------------------------------------------------
 
-def _render_horizontal(diagram: XYChart, use_ascii: bool = False) -> Canvas:
+def _render_horizontal(diagram: XYChart, use_ascii: bool = False) -> LayoutScene:
     bar_char = "#" if use_ascii else _BAR_CHAR
     bar_half = "|" if use_ascii else _BAR_HALF_H
     marker = "*" if use_ascii else _LINE_MARKER
@@ -182,7 +182,7 @@ def _render_horizontal(diagram: XYChart, use_ascii: bool = False) -> Canvas:
     for ds in diagram.datasets:
         all_values.extend(ds.values)
     if not all_values:
-        return Canvas(1, 1)
+        return LayoutScene(1, 1)
 
     max_val = max(all_values)
     min_val = min(0, min(all_values))
@@ -215,7 +215,7 @@ def _render_horizontal(diagram: XYChart, use_ascii: bool = False) -> Canvas:
     total_h = title_lines + chart_h + 3  # chart + axis + value labels
     total_w = margin_l + 1 + chart_w + 2
 
-    canvas = Canvas(total_w + 1, total_h + 1)
+    canvas = LayoutScene(total_w + 1, total_h + 1)
     row_offset = title_lines
 
     # Title
@@ -272,7 +272,7 @@ def _render_horizontal(diagram: XYChart, use_ascii: bool = False) -> Canvas:
 # Line drawing helpers
 # ---------------------------------------------------------------------------
 
-def _draw_line_v(canvas: Canvas, x1: int, y1: int, x2: int, y2: int, use_ascii: bool, rounded: bool = True) -> None:
+def _draw_line_v(canvas: LayoutScene, x1: int, y1: int, x2: int, y2: int, use_ascii: bool, rounded: bool = True) -> None:
     """Draw a connecting line between two markers (vertical chart)."""
     hz = "-" if use_ascii else "─"
     vt = "|" if use_ascii else "│"
@@ -311,7 +311,7 @@ def _draw_line_v(canvas: Canvas, x1: int, y1: int, x2: int, y2: int, use_ascii: 
             canvas.put(y2, x, hz, merge=False, style="edge")
 
 
-def _draw_line_h(canvas: Canvas, x1: int, y1: int, x2: int, y2: int, use_ascii: bool) -> None:
+def _draw_line_h(canvas: LayoutScene, x1: int, y1: int, x2: int, y2: int, use_ascii: bool) -> None:
     """Draw a connecting line between two markers (horizontal chart)."""
     hz = "-" if use_ascii else "─"
     vt = "|" if use_ascii else "│"

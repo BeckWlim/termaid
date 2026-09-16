@@ -1,0 +1,8 @@
+flowchart TB
+    subgraph Frontend
+        UI --> API
+    end
+    subgraph Backend
+        Worker --> Database
+    end
+    API --> Worker

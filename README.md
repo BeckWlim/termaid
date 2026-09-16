@@ -503,6 +503,11 @@ Return corridors have a bounded structural width; long labels do not set their w
 compares width and height limits, reference count, node-label budget, and output height.
 When references remain, it tries one layout with more routing space. Labels use the existing `--width` budget and
 wrap whole words into clear rectangles beside their paths, preferring balanced lines.
+Horizontal graph fitting preserves complete node identifiers, reclaims oversized sentence
+gaps, and reserves clearance in busy corridors. Spare width goes to short branch labels
+before they need numbered references. If the readable layout cannot fit, `wrap` reports
+the overflow and `--strict-width` rejects it. See the
+[integrated Mooncake measurements](docs/rendering.md#bounded-width-fitting).
 With `--width`, labels use the available width before wrapping, extending beyond the node
 layout when needed. Without a width budget, they prefer existing diagram space. Return labels
 prefer the outer margin. They never overwrite connectors or nodes. A label that still cannot fit uses a
@@ -512,7 +517,12 @@ the source and target. The reference list wraps within the same width budget.
 `--arrow-position middle` places directional flowchart arrowheads on clear straight segments,
 preferring unshared portions near the middle. This helps distinguish converging edges.
 Placement is best effort: short routes can retain endpoint heads; circle and cross endpoints
-always stay at their endpoints. The default remains `--arrow-position end`.
+always stay at their endpoints. The unified triangle family `▲ ▶ ▼ ◀` is used in
+all four directions. By default, triangles sit directly in straight block borders,
+removing the arrow-to-block margin. `--arrow-position border` is an explicit alias
+for this endpoint placement.
+Shape markers and corners are preserved, using a nearby head when necessary.
+The default remains `--arrow-position end`.
 These options preserve terminal text size and apply to the graph renderer, not sequence arrows.
 Sequence arrows leave a blank cell beside endpoint lifelines; self-loops reserve room before
 the next participant. Self-loop reach is capped at 15% of the measured diagram width, with
@@ -527,8 +537,12 @@ participant-box wrapping limit. An arrow spanning several participants can cross
 lifelines; its label wraps in one clear gap without erasing them. Label height is reserved before
 arrow rows are assigned. Punctuation boundaries help keep short endings with their preceding phrase.
 
-Graph and sequence labels are planned and checked before painting. Rendering these diagrams
-keeps the caller's original model unchanged, including across repeated renders at different widths.
+All diagram types use a shared layout surface and a completed, immutable output plan.
+Text, Rich, and styled JSON consume the same geometry. Graph and sequence labels are
+reserved and checked before the plan is finalized. Rendering these diagrams keeps the
+caller's original model unchanged, including across repeated renders at different widths.
+Flowcharts accept both `subgraph Storage[Storage resources]` and its spaced form.
+Node, edge, and group labels recognize `<br>`, `<br/>`, and `<br />` line breaks.
 See [rendering architecture](docs/rendering.md) for layout contracts and validation.
 
 Width-fitted labels prefer whole words, then punctuation, identifier separators, and
@@ -557,7 +571,7 @@ wrap_display_text("Read complete words here", 14)
 | `--padding-x N` | Horizontal padding inside boxes (default: 4) |
 | `--padding-y N` | Vertical padding inside boxes (default: 2) |
 | `--gap N` | Space between nodes (default: 4). Use `1` or `2` for compact diagrams |
-| `--arrow-position {end,middle}` | Flowchart arrowhead placement; default `end`, best-effort `middle` |
+| `--arrow-position {end,middle,border}` | Default border endpoints, middle segments, or explicit border placement |
 | `--inline-edge-labels` | Attach flowchart labels directly to their edges |
 | `--width N` | Target output width in terminal display cells; fit oversized diagrams with smaller spacing and wrapped labels |
 | `--strict-width` | Fail without oversized output if the requested width cannot be met |
@@ -567,6 +581,7 @@ wrap_display_text("Read complete words here", 14)
 | `--sharp-edges` | Sharp corners on edge turns instead of rounded |
 | `-o FILE` | Write output to file instead of stdout |
 | `--format styled-json` | Emit versioned semantic text chunks for editor and UI integrations |
+| `--diagnostics-format json` | Emit versioned errors and warnings on stderr for [editor integrations](docs/integrations.md) |
 | `--show-ids` | Show node IDs alongside labels for debugging (e.g. `myId: My Label`) |
 | `--json TYPE` | Pipe JSON/tabular data and render as `treemap`, `pie`, `mindmap`, `flowchart`, or `xychart` |
 | `--tui` | Interactive TUI viewer (requires `pip install termaid[tui]`) |
@@ -576,10 +591,29 @@ wrap_display_text("Read complete words here", 14)
 ### `render(source, ...) -> str`
 
 Render a Mermaid diagram as a plain text string. Auto-detects diagram type.
-`arrow_position="middle"` enables middle arrowheads for graph diagrams; `"end"` is the default.
+`arrow_position="middle"` enables middle arrowheads for graph diagrams;
+`"end"` (default) and `"border"` place all directions directly in straight block
+borders to avoid a visible margin.
 The same keyword is supported by `render_rich` and `termaid.output.styled.render_styled`.
 These adapters also accept `max_width` to bound edge-label placement, as the CLI does with
 `--width`; this alone does not fit oversized node layouts.
+
+### `plan(source, ...) -> DiagramPlan`
+
+Plan any supported diagram once and reuse its geometry across output formats:
+
+```python
+from termaid import plan
+
+diagram = plan("flowchart LR\nA --> B", arrow_position="border")
+print(diagram.to_string())
+styled_document = diagram.to_styled()
+colored_text = diagram.to_rich(theme="terra")
+```
+
+`width`, `height`, and `width_overflow` report terminal-cell dimensions. A width
+budget does not silently crop oversized geometry; use CLI width fitting when needed.
+The plan is immutable and serialization never reruns layout.
 
 ### `render_rich(source, ..., theme="default") -> rich.text.Text`
 

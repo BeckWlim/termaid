@@ -80,7 +80,7 @@ UNICODE = CharSet(
     round_top_left="╭", round_top_right="╮",
     round_bottom_left="╰", round_bottom_right="╯",
     # Arrows
-    arrow_right="►", arrow_left="◄", arrow_down="▼", arrow_up="▲",
+    arrow_right="▶", arrow_left="◀", arrow_down="▼", arrow_up="▲",
     # Edge lines
     line_horizontal="─", line_vertical="│",
     line_dotted_h="┄", line_dotted_v="┆",

@@ -1,0 +1,185 @@
+{
+  "fixture": "tests/fixtures/mooncake_integrated.mmd",
+  "baseline": "Uncommitted checkout captured before regional width changes; HEAD 88651629 plus existing unified layout work",
+  "arguments": "--width WIDTH --fit-mode wrap --gap 3 --padding-x 1 --padding-y 0",
+  "before": {
+    "import_path": "/tmp/termaid-width-before/src/termaid/__init__.py",
+    "samples": 3,
+    "measurements": [
+      {
+        "target_width": 90,
+        "actual_width": 121,
+        "height": 72,
+        "references": [
+          "[1] Memory to Offload: Offload",
+          "[2] Offload to SSD: Local I/O",
+          "[3] SPDK: NVMe-oF"
+        ],
+        "intact_identifiers": {
+          "MasterService": false,
+          "FileStorage": false,
+          "NOF_SSD": false,
+          "LOCAL_DISK": false,
+          "RealClient": false
+        },
+        "crowded_crossing_pairs": 1,
+        "data_plane_left": 36,
+        "layout_calls": 7,
+        "median_ms": 400.56,
+        "stderr": "Warning: diagram is 121 cols wide but target is 90. Try: less -S, or use 'graph TD' for vertical layout.\n",
+        "return_code": 0
+      },
+      {
+        "target_width": 140,
+        "actual_width": 139,
+        "height": 53,
+        "references": [
+          "[1] Offload",
+          "[2] SPDK: NVMe-oF"
+        ],
+        "intact_identifiers": {
+          "MasterService": false,
+          "FileStorage": false,
+          "NOF_SSD": false,
+          "LOCAL_DISK": false,
+          "RealClient": false
+        },
+        "crowded_crossing_pairs": 1,
+        "data_plane_left": 39,
+        "layout_calls": 8,
+        "median_ms": 469.54,
+        "stderr": "",
+        "return_code": 0
+      },
+      {
+        "target_width": 180,
+        "actual_width": 179,
+        "height": 47,
+        "references": [
+          "[1] Offload",
+          "[2] SPDK: NVMe-oF"
+        ],
+        "intact_identifiers": {
+          "MasterService": true,
+          "FileStorage": true,
+          "NOF_SSD": true,
+          "LOCAL_DISK": true,
+          "RealClient": true
+        },
+        "crowded_crossing_pairs": 1,
+        "data_plane_left": 46,
+        "layout_calls": 8,
+        "median_ms": 382.34,
+        "stderr": "",
+        "return_code": 0
+      },
+      {
+        "target_width": 220,
+        "actual_width": 217,
+        "height": 44,
+        "references": [
+          "[1] Offload",
+          "[2] SPDK: NVMe-oF"
+        ],
+        "intact_identifiers": {
+          "MasterService": true,
+          "FileStorage": true,
+          "NOF_SSD": true,
+          "LOCAL_DISK": true,
+          "RealClient": true
+        },
+        "crowded_crossing_pairs": 0,
+        "data_plane_left": 55,
+        "layout_calls": 8,
+        "median_ms": 484.96,
+        "stderr": "",
+        "return_code": 0
+      }
+    ]
+  },
+  "after": {
+    "import_path": "/home/xffan2/.config/termaid/src/termaid/__init__.py",
+    "samples": 3,
+    "measurements": [
+      {
+        "target_width": 90,
+        "actual_width": 139,
+        "height": 53,
+        "references": [
+          "[1] Memory to Offload: Offload",
+          "[2] Offload to SSD: Local I/O"
+        ],
+        "intact_identifiers": {
+          "MasterService": true,
+          "FileStorage": true,
+          "NOF_SSD": true,
+          "LOCAL_DISK": true,
+          "RealClient": true
+        },
+        "crowded_crossing_pairs": 0,
+        "data_plane_left": 35,
+        "layout_calls": 7,
+        "median_ms": 257.86,
+        "stderr": "Warning: diagram is 139 cols wide but target is 90. Try: less -S, or use 'graph TD' for vertical layout.\n",
+        "return_code": 0
+      },
+      {
+        "target_width": 140,
+        "actual_width": 139,
+        "height": 50,
+        "references": [],
+        "intact_identifiers": {
+          "MasterService": true,
+          "FileStorage": true,
+          "NOF_SSD": true,
+          "LOCAL_DISK": true,
+          "RealClient": true
+        },
+        "crowded_crossing_pairs": 0,
+        "data_plane_left": 35,
+        "layout_calls": 7,
+        "median_ms": 268.89,
+        "stderr": "",
+        "return_code": 0
+      },
+      {
+        "target_width": 180,
+        "actual_width": 179,
+        "height": 50,
+        "references": [],
+        "intact_identifiers": {
+          "MasterService": true,
+          "FileStorage": true,
+          "NOF_SSD": true,
+          "LOCAL_DISK": true,
+          "RealClient": true
+        },
+        "crowded_crossing_pairs": 0,
+        "data_plane_left": 41,
+        "layout_calls": 7,
+        "median_ms": 362.04,
+        "stderr": "",
+        "return_code": 0
+      },
+      {
+        "target_width": 220,
+        "actual_width": 197,
+        "height": 50,
+        "references": [],
+        "intact_identifiers": {
+          "MasterService": true,
+          "FileStorage": true,
+          "NOF_SSD": true,
+          "LOCAL_DISK": true,
+          "RealClient": true
+        },
+        "crowded_crossing_pairs": 0,
+        "data_plane_left": 42,
+        "layout_calls": 1,
+        "median_ms": 66.63,
+        "stderr": "",
+        "return_code": 0
+      }
+    ]
+  }
+}

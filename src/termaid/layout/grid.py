@@ -45,7 +45,7 @@ MAX_NORMALIZED_HEIGHT = 7  # Cap for per-layer row normalization
 
 # Subgraph layout constants
 SG_BORDER_PAD = 2    # Padding between content and subgraph border
-SG_LABEL_HEIGHT = 2  # Space for subgraph label + border line
+SG_LABEL_HEIGHT = 3  # Heading + border + a straight approach below the title
 SG_GAP_PER_LEVEL = SG_BORDER_PAD + SG_LABEL_HEIGHT + 1  # Gap per nesting level
 
 
@@ -99,6 +99,7 @@ class GridLayout:
     subgraph_bounds: list[SubgraphBounds] = field(default_factory=list)
     offset_x: int = 0
     offset_y: int = 0
+    width_budget: int | None = None
 
     def is_free(self, col: int, row: int, exclude: set[str] | None = None) -> bool:
         """Check if a grid cell is not occupied by any node's 3x3 block."""
@@ -177,6 +178,7 @@ def compute_layout(
     gap: int = 4,
     max_label_width: int | None = None,
     uniform_nodes: bool = False,
+    max_width: int | None = None,
 ) -> GridLayout:
     """Compute the grid layout for a graph."""
     effective_gap = max(gap, 1)  # minimum 1 for arrow visibility
@@ -188,23 +190,23 @@ def compute_layout(
         order_layers,
         separate_subgraph_layers,
     )
-    from .placement import place_nodes, compute_sizes, normalize_sizes, reserve_return_margin
+    from .placement import allocate_label_slack, place_nodes, compute_sizes, normalize_sizes, reserve_return_margin
     from .subgraphs import expand_gaps_for_subgraphs, compute_subgraph_bounds
     from .coordinates import compute_draw_coords, adjust_for_negative_bounds
 
-    layout = GridLayout()
+    layout = GridLayout(width_budget=max_width)
     direction = graph.direction.normalized()
 
     if not graph.node_order:
         return layout
 
     # For architecture diagrams with precomputed grid positions,
-    # build layer_order directly from the positions instead of BFS.
+    # build layer_order directly from the positions instead of graph ranks.
     if graph.grid_positions:
         layer_order = _layer_order_from_grid(graph)
         gap_expansions: dict[int, int] = {}
     else:
-        # Step 1: Assign layers via BFS from roots. Edges with subgraph
+        # Step 1: Assign dependency/feedback layers. Edges with subgraph
         # endpoints (A --> B where A/B are subgraphs) are temporarily
         # expanded into member-to-member edges so they constrain layering.
         virtual_edges = expand_subgraph_edges(graph)
@@ -241,25 +243,18 @@ def compute_layout(
     # Step 5: Expand gaps for subgraph borders and labels
     expand_gaps_for_subgraphs(graph, layout, direction)
 
-    # Step 6: Compute drawing coordinates
-    compute_draw_coords(layout)
-
-    # Step 7: Compute subgraph bounds
-    compute_subgraph_bounds(graph, layout)
-
-    # Step 8: Adjust for negative subgraph bounds
-    adjust_for_negative_bounds(layout)
-
-    # Step 9: Compute canvas size
-    max_x = 0
-    max_y = 0
-    for p in layout.placements.values():
-        max_x = max(max_x, p.draw_x + p.draw_width)
-        max_y = max(max_y, p.draw_y + p.draw_height)
-    for sb in layout.subgraph_bounds:
-        max_x = max(max_x, sb.x + sb.width)
-        max_y = max(max_y, sb.y + sb.height)
-    layout.canvas_width = max_x
-    layout.canvas_height = max_y
+    # Measure frames before spending optional width. At most one local
+    # allocation pass changes gaps; no parsing or routing is repeated.
+    for measurement in range(2):
+        compute_draw_coords(layout)
+        layout.subgraph_bounds.clear()
+        compute_subgraph_bounds(graph, layout)
+        adjust_for_negative_bounds(layout)
+        layout.canvas_width = max([0, *(p.draw_x + p.draw_width for p in layout.placements.values()),
+                                   *(sb.x + sb.width for sb in layout.subgraph_bounds)])
+        layout.canvas_height = max([0, *(p.draw_y + p.draw_height for p in layout.placements.values()),
+                                    *(sb.y + sb.height for sb in layout.subgraph_bounds)])
+        if measurement or not allocate_label_slack(graph, layout):
+            break
 
     return layout

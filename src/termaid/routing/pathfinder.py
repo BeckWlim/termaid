@@ -41,6 +41,7 @@ def find_path(
     is_free: Callable[[int, int], bool],
     soft_obstacles: set[tuple[int, int]] | None = None,
     max_iterations: int = 5000,
+    step_penalty: Callable[[int, int, int, int], float] | None = None,
 ) -> list[tuple[int, int]] | None:
     """Find a path from start to end using A*.
 
@@ -99,6 +100,8 @@ def find_path(
             step_cost = 1.0
             if nkey in soft:
                 step_cost += 2.0
+            if step_penalty is not None:
+                step_cost += step_penalty(nc, nr, dc, dr)
 
             # Corner penalty: if direction changes from parent's direction
             if current.parent is not None:

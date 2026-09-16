@@ -108,7 +108,7 @@ class TestCliWidth:
         assert captured.out == ""
         assert "requires --width" in captured.err
 
-    def test_strict_width_reflows_and_wraps_long_tokens(self, tmp_path: Path, capsys):
+    def test_strict_width_reflows_without_fragmenting_identifiers(self, tmp_path: Path, capsys):
         mmd = tmp_path / "long-token-flow.mmd"
         mmd.write_text(
             "flowchart LR\n"
@@ -122,7 +122,9 @@ class TestCliWidth:
         captured = capsys.readouterr()
         assert result == 0
         assert captured.err == ""
-        assert "►" in captured.out
+        assert "▼" in captured.out
+        assert "StartProcessingWithoutSpaces" in captured.out
+        assert "ContinueProcessingWithoutSpaces" in captured.out
         assert all(display_width(line) <= 40 for line in captured.out.splitlines())
 
     def test_strict_width_wraps_sequence_text(self, tmp_path: Path, capsys):
@@ -140,7 +142,7 @@ class TestCliWidth:
         captured = capsys.readouterr()
         assert result == 0
         assert captured.err == ""
-        assert "►" in captured.out
+        assert "▶" in captured.out
         assert all(display_width(line) <= 40 for line in captured.out.splitlines())
 
     def test_strict_width_uses_available_sequence_width(self, tmp_path: Path, capsys):
@@ -263,15 +265,15 @@ def _strip_ansi(text: str) -> str:
 
 class TestRenderErrorPropagation:
     def test_render_raises_on_internal_error(self, monkeypatch):
-        import termaid.output.text as text_out
-        monkeypatch.setattr(text_out, "render_text", _boom)
+        import termaid.layout.engine as layout_engine
+        monkeypatch.setattr(layout_engine, "plan", _boom)
         from termaid import render
         with pytest.raises(RuntimeError, match="internal failure"):
             render("graph LR\n  A --> B")
 
     def test_render_failure_exits_nonzero(self, tmp_path: Path, monkeypatch, capsys):
-        import termaid.output.text as text_out
-        monkeypatch.setattr(text_out, "render_text", _boom)
+        import termaid.layout.engine as layout_engine
+        monkeypatch.setattr(layout_engine, "plan", _boom)
         mmd = tmp_path / "t.mmd"
         mmd.write_text("graph LR\n  A --> B")
         result = main([str(mmd)])
@@ -281,8 +283,8 @@ class TestRenderErrorPropagation:
         assert "Failed to render" not in captured.out
 
     def test_render_failure_does_not_write_output_file(self, tmp_path: Path, monkeypatch):
-        import termaid.output.text as text_out
-        monkeypatch.setattr(text_out, "render_text", _boom)
+        import termaid.layout.engine as layout_engine
+        monkeypatch.setattr(layout_engine, "plan", _boom)
         mmd = tmp_path / "t.mmd"
         mmd.write_text("graph LR\n  A --> B")
         out = tmp_path / "out.txt"

@@ -1,0 +1,20 @@
+flowchart TB
+    App[Application: vLLM / SGLang]
+    Client[Pod A: Client / RealClient]
+    Master[MasterService]
+    Memory[MEMORY: shared DRAM replica]
+    Offload[Client B / FileStorage]
+    SSD[LOCAL_DISK: lower-tier local SSD]
+    Memory -->|Offload| Offload
+    Offload <--->|Local I/O: offload / restore| SSD
+    NoF[NOF_SSD: shared NVMe-oF SSD]
+    DFS[DFS: shared filesystem]
+    Disk[DISK: backend files]
+    App -->|Put / Get| Client
+    Master -.->|Descriptors via MasterClient| Client
+    Master -.->|Offload task replies| Offload
+    Client <-->|Transfer Engine: RDMA / TCP| Memory
+    Client -->|Restore RPC and TE pull| Offload
+    Client <-->|SPDK: NVMe-oF| NoF
+    Client <-->|DFS backend: POSIX / HF3FS| DFS
+    Client <-->|File backend I/O| Disk

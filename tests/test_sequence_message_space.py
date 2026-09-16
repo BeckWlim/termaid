@@ -143,7 +143,7 @@ def test_short_self_loop_keeps_eight_visible_cells_and_neighbor_clear(use_ascii,
     loop_right = lines[loop_row_index].index('+' if use_ascii else '┐')
     assert loop_right - (left + 2) + 1 >= 8
     assert loop_right <= next_lifeline - 2
-    assert canvas.get(loop_row_index + 1, left + 2) == ('<' if use_ascii else '◄')
+    assert canvas.get(loop_row_index + 1, left + 2) == ('<' if use_ascii else '◀')
 
 
 @pytest.mark.parametrize('label', ['one\ntwo', 'one\n\ntwo'])
@@ -205,7 +205,7 @@ A->>B: done'''
     left = lines[1].index('A')
     right = lines[1].index('B')
     return_row = next(index for index, row in enumerate(canvas.to_styled_pairs())
-                      if any(character == ('<' if use_ascii else '◄') and style == 'arrow'
+                      if any(character == ('<' if use_ascii else '◀') and style == 'arrow'
                              for character, style in row))
     lifeline = ':' if use_ascii else '┆'
     for row in (return_row - 1, return_row):
@@ -221,7 +221,7 @@ participant C
 A->>C: across'''))
     lines = canvas.to_string().splitlines()
     centers = [lines[1].index(name) for name in 'ABC']
-    arrow_row = next(index for index, line in enumerate(lines) if '►' in line)
+    arrow_row = next(index for index, line in enumerate(lines) if '▶' in line)
     assert canvas.get(arrow_row, centers[1]) == 'x'
     assert canvas.get(arrow_row, centers[0]) == canvas.get(arrow_row, centers[2]) == '┆'
 
@@ -237,6 +237,6 @@ deactivate B'''))
     lines = canvas.to_string().splitlines()
     right = lines[1].index('B')
     for row, line in enumerate(lines):
-        if '►' in line or '◄' in line:
+        if '▶' in line or '◀' in line:
             assert canvas.get(row, right) == '║'
             assert canvas.get(row, right - 1) == ' '

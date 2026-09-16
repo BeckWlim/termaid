@@ -1,0 +1,17 @@
+flowchart TB
+    App[Application] -->|Put / Get| Client[Store client]
+    Client <-.->|Placement / completion / lookup RPC| Master[MasterService]
+    subgraph Storage [Storage resources]
+        Memory[DRAM: MEMORY]
+        NoF[NVMe-oF SSD: NOF_SSD]
+        Local[Owner-local SSD: LOCAL_DISK]
+        Disk[Backend files: DISK]
+        DFS[Shared filesystem ranges: DFS]
+    end
+    Master -.->|Replica lifecycle control| Storage
+    Client -->|Transfer Engine / local copy| Memory
+    Client -->|SPDK block I/O| NoF
+    Client -->|Restore via owner RPC| Local
+    Client -->|Storage backend file I/O| Disk
+    Client -->|DFS backend range I/O| DFS
+    Memory -->|Owner FileStorage offload| Local

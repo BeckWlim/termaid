@@ -1,0 +1,1552 @@
+{
+  "baseline": "Working tree before this optimization, including pre-existing uncommitted changes.",
+  "baseline_module_sha256": {
+    "layers.py": "10b9cd88f3cd363146ef17631a7c465924b04c6f1589d71bd1538b6b89465172",
+    "placement.py": "e12d01dd2eb63c29f1edfc80db8f500b02e9c8638e0f0eb2c04af8df6d14d59c",
+    "router.py": "bab40fef18409587e17fd38431b562c2500959323e80091f22392858a9f38a31"
+  },
+  "options": {
+    "padding_x": 1,
+    "padding_y": 0,
+    "gap": 2,
+    "fit_mode": "reflow",
+    "strict_width": true
+  },
+  "comparison": [
+    {
+      "sample": "bidirectional_hub",
+      "budget": 80,
+      "before": {
+        "sample": "bidirectional_hub",
+        "budget": 80,
+        "exit_code": 0,
+        "width": 79,
+        "height": 19,
+        "crossings": 3,
+        "references": 1
+      },
+      "after": {
+        "sample": "bidirectional_hub",
+        "budget": 80,
+        "exit_code": 0,
+        "width": 79,
+        "height": 16,
+        "crossings": 0,
+        "references": 0
+      }
+    },
+    {
+      "sample": "bidirectional_hub",
+      "budget": 120,
+      "before": {
+        "sample": "bidirectional_hub",
+        "budget": 120,
+        "exit_code": 0,
+        "width": 79,
+        "height": 19,
+        "crossings": 3,
+        "references": 1
+      },
+      "after": {
+        "sample": "bidirectional_hub",
+        "budget": 120,
+        "exit_code": 0,
+        "width": 79,
+        "height": 16,
+        "crossings": 0,
+        "references": 0
+      }
+    },
+    {
+      "sample": "bidirectional_hub",
+      "budget": 160,
+      "before": {
+        "sample": "bidirectional_hub",
+        "budget": 160,
+        "exit_code": 0,
+        "width": 79,
+        "height": 19,
+        "crossings": 3,
+        "references": 1
+      },
+      "after": {
+        "sample": "bidirectional_hub",
+        "budget": 160,
+        "exit_code": 0,
+        "width": 79,
+        "height": 16,
+        "crossings": 0,
+        "references": 0
+      }
+    },
+    {
+      "sample": "chain",
+      "budget": 80,
+      "before": {
+        "sample": "chain",
+        "budget": 80,
+        "exit_code": 0,
+        "width": 11,
+        "height": 15,
+        "crossings": 0,
+        "references": 0
+      },
+      "after": {
+        "sample": "chain",
+        "budget": 80,
+        "exit_code": 0,
+        "width": 11,
+        "height": 15,
+        "crossings": 0,
+        "references": 0
+      }
+    },
+    {
+      "sample": "chain",
+      "budget": 120,
+      "before": {
+        "sample": "chain",
+        "budget": 120,
+        "exit_code": 0,
+        "width": 11,
+        "height": 15,
+        "crossings": 0,
+        "references": 0
+      },
+      "after": {
+        "sample": "chain",
+        "budget": 120,
+        "exit_code": 0,
+        "width": 11,
+        "height": 15,
+        "crossings": 0,
+        "references": 0
+      }
+    },
+    {
+      "sample": "chain",
+      "budget": 160,
+      "before": {
+        "sample": "chain",
+        "budget": 160,
+        "exit_code": 0,
+        "width": 11,
+        "height": 15,
+        "crossings": 0,
+        "references": 0
+      },
+      "after": {
+        "sample": "chain",
+        "budget": 160,
+        "exit_code": 0,
+        "width": 11,
+        "height": 15,
+        "crossings": 0,
+        "references": 0
+      }
+    },
+    {
+      "sample": "control_links",
+      "budget": 80,
+      "before": {
+        "sample": "control_links",
+        "budget": 80,
+        "exit_code": 0,
+        "width": 72,
+        "height": 26,
+        "crossings": 6,
+        "references": 0
+      },
+      "after": {
+        "sample": "control_links",
+        "budget": 80,
+        "exit_code": 0,
+        "width": 57,
+        "height": 37,
+        "crossings": 0,
+        "references": 0
+      }
+    },
+    {
+      "sample": "control_links",
+      "budget": 120,
+      "before": {
+        "sample": "control_links",
+        "budget": 120,
+        "exit_code": 0,
+        "width": 72,
+        "height": 26,
+        "crossings": 6,
+        "references": 0
+      },
+      "after": {
+        "sample": "control_links",
+        "budget": 120,
+        "exit_code": 0,
+        "width": 57,
+        "height": 37,
+        "crossings": 0,
+        "references": 0
+      }
+    },
+    {
+      "sample": "control_links",
+      "budget": 160,
+      "before": {
+        "sample": "control_links",
+        "budget": 160,
+        "exit_code": 0,
+        "width": 72,
+        "height": 26,
+        "crossings": 6,
+        "references": 0
+      },
+      "after": {
+        "sample": "control_links",
+        "budget": 160,
+        "exit_code": 0,
+        "width": 57,
+        "height": 37,
+        "crossings": 0,
+        "references": 0
+      }
+    },
+    {
+      "sample": "crossing",
+      "budget": 80,
+      "before": {
+        "sample": "crossing",
+        "budget": 80,
+        "exit_code": 0,
+        "width": 17,
+        "height": 13,
+        "crossings": 2,
+        "references": 1
+      },
+      "after": {
+        "sample": "crossing",
+        "budget": 80,
+        "exit_code": 0,
+        "width": 19,
+        "height": 10,
+        "crossings": 1,
+        "references": 0
+      }
+    },
+    {
+      "sample": "crossing",
+      "budget": 120,
+      "before": {
+        "sample": "crossing",
+        "budget": 120,
+        "exit_code": 0,
+        "width": 17,
+        "height": 13,
+        "crossings": 2,
+        "references": 1
+      },
+      "after": {
+        "sample": "crossing",
+        "budget": 120,
+        "exit_code": 0,
+        "width": 19,
+        "height": 10,
+        "crossings": 1,
+        "references": 0
+      }
+    },
+    {
+      "sample": "crossing",
+      "budget": 160,
+      "before": {
+        "sample": "crossing",
+        "budget": 160,
+        "exit_code": 0,
+        "width": 17,
+        "height": 13,
+        "crossings": 2,
+        "references": 1
+      },
+      "after": {
+        "sample": "crossing",
+        "budget": 160,
+        "exit_code": 0,
+        "width": 19,
+        "height": 10,
+        "crossings": 1,
+        "references": 0
+      }
+    },
+    {
+      "sample": "diamond",
+      "budget": 80,
+      "before": {
+        "sample": "diamond",
+        "budget": 80,
+        "exit_code": 0,
+        "width": 26,
+        "height": 19,
+        "crossings": 0,
+        "references": 0
+      },
+      "after": {
+        "sample": "diamond",
+        "budget": 80,
+        "exit_code": 0,
+        "width": 26,
+        "height": 19,
+        "crossings": 0,
+        "references": 0
+      }
+    },
+    {
+      "sample": "diamond",
+      "budget": 120,
+      "before": {
+        "sample": "diamond",
+        "budget": 120,
+        "exit_code": 0,
+        "width": 26,
+        "height": 19,
+        "crossings": 0,
+        "references": 0
+      },
+      "after": {
+        "sample": "diamond",
+        "budget": 120,
+        "exit_code": 0,
+        "width": 26,
+        "height": 19,
+        "crossings": 0,
+        "references": 0
+      }
+    },
+    {
+      "sample": "diamond",
+      "budget": 160,
+      "before": {
+        "sample": "diamond",
+        "budget": 160,
+        "exit_code": 0,
+        "width": 26,
+        "height": 19,
+        "crossings": 0,
+        "references": 0
+      },
+      "after": {
+        "sample": "diamond",
+        "budget": 160,
+        "exit_code": 0,
+        "width": 26,
+        "height": 19,
+        "crossings": 0,
+        "references": 0
+      }
+    },
+    {
+      "sample": "disconnected",
+      "budget": 80,
+      "before": {
+        "sample": "disconnected",
+        "budget": 80,
+        "exit_code": 0,
+        "width": 43,
+        "height": 11,
+        "crossings": 0,
+        "references": 0
+      },
+      "after": {
+        "sample": "disconnected",
+        "budget": 80,
+        "exit_code": 0,
+        "width": 43,
+        "height": 11,
+        "crossings": 0,
+        "references": 0
+      }
+    },
+    {
+      "sample": "disconnected",
+      "budget": 120,
+      "before": {
+        "sample": "disconnected",
+        "budget": 120,
+        "exit_code": 0,
+        "width": 43,
+        "height": 11,
+        "crossings": 0,
+        "references": 0
+      },
+      "after": {
+        "sample": "disconnected",
+        "budget": 120,
+        "exit_code": 0,
+        "width": 43,
+        "height": 11,
+        "crossings": 0,
+        "references": 0
+      }
+    },
+    {
+      "sample": "disconnected",
+      "budget": 160,
+      "before": {
+        "sample": "disconnected",
+        "budget": 160,
+        "exit_code": 0,
+        "width": 43,
+        "height": 11,
+        "crossings": 0,
+        "references": 0
+      },
+      "after": {
+        "sample": "disconnected",
+        "budget": 160,
+        "exit_code": 0,
+        "width": 43,
+        "height": 11,
+        "crossings": 0,
+        "references": 0
+      }
+    },
+    {
+      "sample": "fan_in",
+      "budget": 80,
+      "before": {
+        "sample": "fan_in",
+        "budget": 80,
+        "exit_code": 0,
+        "width": 50,
+        "height": 14,
+        "crossings": 0,
+        "references": 0
+      },
+      "after": {
+        "sample": "fan_in",
+        "budget": 80,
+        "exit_code": 0,
+        "width": 50,
+        "height": 14,
+        "crossings": 0,
+        "references": 0
+      }
+    },
+    {
+      "sample": "fan_in",
+      "budget": 120,
+      "before": {
+        "sample": "fan_in",
+        "budget": 120,
+        "exit_code": 0,
+        "width": 50,
+        "height": 14,
+        "crossings": 0,
+        "references": 0
+      },
+      "after": {
+        "sample": "fan_in",
+        "budget": 120,
+        "exit_code": 0,
+        "width": 50,
+        "height": 14,
+        "crossings": 0,
+        "references": 0
+      }
+    },
+    {
+      "sample": "fan_in",
+      "budget": 160,
+      "before": {
+        "sample": "fan_in",
+        "budget": 160,
+        "exit_code": 0,
+        "width": 50,
+        "height": 14,
+        "crossings": 0,
+        "references": 0
+      },
+      "after": {
+        "sample": "fan_in",
+        "budget": 160,
+        "exit_code": 0,
+        "width": 50,
+        "height": 14,
+        "crossings": 0,
+        "references": 0
+      }
+    },
+    {
+      "sample": "fan_out",
+      "budget": 80,
+      "before": {
+        "sample": "fan_out",
+        "budget": 80,
+        "exit_code": 0,
+        "width": 69,
+        "height": 17,
+        "crossings": 0,
+        "references": 0
+      },
+      "after": {
+        "sample": "fan_out",
+        "budget": 80,
+        "exit_code": 0,
+        "width": 67,
+        "height": 16,
+        "crossings": 0,
+        "references": 0
+      }
+    },
+    {
+      "sample": "fan_out",
+      "budget": 120,
+      "before": {
+        "sample": "fan_out",
+        "budget": 120,
+        "exit_code": 0,
+        "width": 69,
+        "height": 17,
+        "crossings": 0,
+        "references": 0
+      },
+      "after": {
+        "sample": "fan_out",
+        "budget": 120,
+        "exit_code": 0,
+        "width": 67,
+        "height": 16,
+        "crossings": 0,
+        "references": 0
+      }
+    },
+    {
+      "sample": "fan_out",
+      "budget": 160,
+      "before": {
+        "sample": "fan_out",
+        "budget": 160,
+        "exit_code": 0,
+        "width": 69,
+        "height": 17,
+        "crossings": 0,
+        "references": 0
+      },
+      "after": {
+        "sample": "fan_out",
+        "budget": 160,
+        "exit_code": 0,
+        "width": 67,
+        "height": 16,
+        "crossings": 0,
+        "references": 0
+      }
+    },
+    {
+      "sample": "feedback",
+      "budget": 80,
+      "before": {
+        "sample": "feedback",
+        "budget": 80,
+        "exit_code": 0,
+        "width": 27,
+        "height": 23,
+        "crossings": 0,
+        "references": 0
+      },
+      "after": {
+        "sample": "feedback",
+        "budget": 80,
+        "exit_code": 0,
+        "width": 29,
+        "height": 23,
+        "crossings": 0,
+        "references": 0
+      }
+    },
+    {
+      "sample": "feedback",
+      "budget": 120,
+      "before": {
+        "sample": "feedback",
+        "budget": 120,
+        "exit_code": 0,
+        "width": 27,
+        "height": 23,
+        "crossings": 0,
+        "references": 0
+      },
+      "after": {
+        "sample": "feedback",
+        "budget": 120,
+        "exit_code": 0,
+        "width": 29,
+        "height": 23,
+        "crossings": 0,
+        "references": 0
+      }
+    },
+    {
+      "sample": "feedback",
+      "budget": 160,
+      "before": {
+        "sample": "feedback",
+        "budget": 160,
+        "exit_code": 0,
+        "width": 27,
+        "height": 23,
+        "crossings": 0,
+        "references": 0
+      },
+      "after": {
+        "sample": "feedback",
+        "budget": 160,
+        "exit_code": 0,
+        "width": 29,
+        "height": 23,
+        "crossings": 0,
+        "references": 0
+      }
+    },
+    {
+      "sample": "groups",
+      "budget": 80,
+      "before": {
+        "sample": "groups",
+        "budget": 80,
+        "exit_code": 0,
+        "width": 16,
+        "height": 34,
+        "crossings": 0,
+        "references": 0
+      },
+      "after": {
+        "sample": "groups",
+        "budget": 80,
+        "exit_code": 0,
+        "width": 16,
+        "height": 34,
+        "crossings": 0,
+        "references": 0
+      }
+    },
+    {
+      "sample": "groups",
+      "budget": 120,
+      "before": {
+        "sample": "groups",
+        "budget": 120,
+        "exit_code": 0,
+        "width": 16,
+        "height": 34,
+        "crossings": 0,
+        "references": 0
+      },
+      "after": {
+        "sample": "groups",
+        "budget": 120,
+        "exit_code": 0,
+        "width": 16,
+        "height": 34,
+        "crossings": 0,
+        "references": 0
+      }
+    },
+    {
+      "sample": "groups",
+      "budget": 160,
+      "before": {
+        "sample": "groups",
+        "budget": 160,
+        "exit_code": 0,
+        "width": 16,
+        "height": 34,
+        "crossings": 0,
+        "references": 0
+      },
+      "after": {
+        "sample": "groups",
+        "budget": 160,
+        "exit_code": 0,
+        "width": 16,
+        "height": 34,
+        "crossings": 0,
+        "references": 0
+      }
+    },
+    {
+      "sample": "shortcut",
+      "budget": 80,
+      "before": {
+        "sample": "shortcut",
+        "budget": 80,
+        "exit_code": 0,
+        "width": 28,
+        "height": 11,
+        "crossings": 0,
+        "references": 0
+      },
+      "after": {
+        "sample": "shortcut",
+        "budget": 80,
+        "exit_code": 0,
+        "width": 13,
+        "height": 15,
+        "crossings": 0,
+        "references": 0
+      }
+    },
+    {
+      "sample": "shortcut",
+      "budget": 120,
+      "before": {
+        "sample": "shortcut",
+        "budget": 120,
+        "exit_code": 0,
+        "width": 28,
+        "height": 11,
+        "crossings": 0,
+        "references": 0
+      },
+      "after": {
+        "sample": "shortcut",
+        "budget": 120,
+        "exit_code": 0,
+        "width": 13,
+        "height": 15,
+        "crossings": 0,
+        "references": 0
+      }
+    },
+    {
+      "sample": "shortcut",
+      "budget": 160,
+      "before": {
+        "sample": "shortcut",
+        "budget": 160,
+        "exit_code": 0,
+        "width": 28,
+        "height": 11,
+        "crossings": 0,
+        "references": 0
+      },
+      "after": {
+        "sample": "shortcut",
+        "budget": 160,
+        "exit_code": 0,
+        "width": 13,
+        "height": 15,
+        "crossings": 0,
+        "references": 0
+      }
+    },
+    {
+      "sample": "storage_architecture",
+      "budget": 80,
+      "before": {
+        "sample": "storage_architecture",
+        "budget": 80,
+        "exit_code": 0,
+        "width": 79,
+        "height": 41,
+        "crossings": 7,
+        "references": 2
+      },
+      "after": {
+        "sample": "storage_architecture",
+        "budget": 80,
+        "exit_code": 0,
+        "width": 78,
+        "height": 49,
+        "crossings": 0,
+        "references": 0
+      }
+    },
+    {
+      "sample": "storage_architecture",
+      "budget": 120,
+      "before": {
+        "sample": "storage_architecture",
+        "budget": 120,
+        "exit_code": 0,
+        "width": 120,
+        "height": 36,
+        "crossings": 7,
+        "references": 2
+      },
+      "after": {
+        "sample": "storage_architecture",
+        "budget": 120,
+        "exit_code": 0,
+        "width": 119,
+        "height": 44,
+        "crossings": 0,
+        "references": 0
+      }
+    },
+    {
+      "sample": "storage_architecture",
+      "budget": 160,
+      "before": {
+        "sample": "storage_architecture",
+        "budget": 160,
+        "exit_code": 0,
+        "width": 126,
+        "height": 40,
+        "crossings": 7,
+        "references": 1
+      },
+      "after": {
+        "sample": "storage_architecture",
+        "budget": 160,
+        "exit_code": 0,
+        "width": 123,
+        "height": 43,
+        "crossings": 0,
+        "references": 0
+      }
+    },
+    {
+      "sample": "production_supervisor_state",
+      "budget": 80,
+      "before": null,
+      "after": {
+        "sample": "production_supervisor_state",
+        "budget": 80,
+        "exit_code": 0,
+        "width": 77,
+        "height": 45,
+        "crossings": 1,
+        "references": 0
+      }
+    },
+    {
+      "sample": "production_supervisor_state",
+      "budget": 120,
+      "before": null,
+      "after": {
+        "sample": "production_supervisor_state",
+        "budget": 120,
+        "exit_code": 0,
+        "width": 109,
+        "height": 43,
+        "crossings": 1,
+        "references": 0
+      }
+    },
+    {
+      "sample": "production_supervisor_state",
+      "budget": 160,
+      "before": null,
+      "after": {
+        "sample": "production_supervisor_state",
+        "budget": 160,
+        "exit_code": 0,
+        "width": 109,
+        "height": 43,
+        "crossings": 1,
+        "references": 0
+      }
+    }
+  ],
+  "reference_versions": {
+    "dagre": "1.1.5",
+    "elkjs": "0.10.0"
+  },
+  "reference_geometry": [
+    {
+      "sample": "bidirectional_hub",
+      "dagre_version": "1.1.5",
+      "note": "Uniform abstract boxes; compare topology and alignment, not browser pixels or terminal cell dimensions. ELK uses unit edge lengths.",
+      "dagre": [
+        {
+          "id": "Client",
+          "x": 315,
+          "y": 25
+        },
+        {
+          "id": "Memory",
+          "x": 60,
+          "y": 125
+        },
+        {
+          "id": "SSD",
+          "x": 230,
+          "y": 125
+        },
+        {
+          "id": "Files",
+          "x": 400,
+          "y": 125
+        },
+        {
+          "id": "Archive",
+          "x": 570,
+          "y": 125
+        }
+      ],
+      "elk": [
+        {
+          "id": "Client",
+          "x": 108,
+          "y": 37
+        },
+        {
+          "id": "Memory",
+          "x": 352,
+          "y": 127
+        },
+        {
+          "id": "SSD",
+          "x": 492,
+          "y": 127
+        },
+        {
+          "id": "Files",
+          "x": 72,
+          "y": 127
+        },
+        {
+          "id": "Archive",
+          "x": 212,
+          "y": 127
+        }
+      ]
+    },
+    {
+      "sample": "chain",
+      "dagre_version": "1.1.5",
+      "note": "Uniform abstract boxes; compare topology and alignment, not browser pixels or terminal cell dimensions. ELK uses unit edge lengths.",
+      "dagre": [
+        {
+          "id": "Input",
+          "x": 60,
+          "y": 25
+        },
+        {
+          "id": "Parse",
+          "x": 60,
+          "y": 125
+        },
+        {
+          "id": "Validate",
+          "x": 60,
+          "y": 225
+        },
+        {
+          "id": "Output",
+          "x": 60,
+          "y": 325
+        }
+      ],
+      "elk": [
+        {
+          "id": "Input",
+          "x": 72,
+          "y": 37
+        },
+        {
+          "id": "Parse",
+          "x": 72,
+          "y": 107
+        },
+        {
+          "id": "Validate",
+          "x": 72,
+          "y": 177
+        },
+        {
+          "id": "Output",
+          "x": 72,
+          "y": 247
+        }
+      ]
+    },
+    {
+      "sample": "control_links",
+      "dagre_version": "1.1.5",
+      "note": "Uniform abstract boxes; compare topology and alignment, not browser pixels or terminal cell dimensions. ELK uses unit edge lengths.",
+      "dagre": [
+        {
+          "id": "App",
+          "x": 287.5,
+          "y": 25
+        },
+        {
+          "id": "Client",
+          "x": 315,
+          "y": 125
+        },
+        {
+          "id": "Master",
+          "x": 505,
+          "y": 25
+        },
+        {
+          "id": "Storage",
+          "x": 457.5,
+          "y": 325
+        },
+        {
+          "id": "Memory",
+          "x": 60,
+          "y": 225
+        },
+        {
+          "id": "SSD",
+          "x": 230,
+          "y": 225
+        },
+        {
+          "id": "DFS",
+          "x": 400,
+          "y": 225
+        },
+        {
+          "id": "Disk",
+          "x": 457.5,
+          "y": 425
+        }
+      ],
+      "elk": [
+        {
+          "id": "App",
+          "x": 295,
+          "y": 37
+        },
+        {
+          "id": "Client",
+          "x": 275,
+          "y": 107
+        },
+        {
+          "id": "Master",
+          "x": 72,
+          "y": 37
+        },
+        {
+          "id": "Storage",
+          "x": 82,
+          "y": 267
+        },
+        {
+          "id": "Memory",
+          "x": 403,
+          "y": 187
+        },
+        {
+          "id": "SSD",
+          "x": 263,
+          "y": 187
+        },
+        {
+          "id": "DFS",
+          "x": 123,
+          "y": 187
+        },
+        {
+          "id": "Disk",
+          "x": 82,
+          "y": 337
+        }
+      ]
+    },
+    {
+      "sample": "crossing",
+      "dagre_version": "1.1.5",
+      "note": "Uniform abstract boxes; compare topology and alignment, not browser pixels or terminal cell dimensions. ELK uses unit edge lengths.",
+      "dagre": [
+        {
+          "id": "A",
+          "x": 70,
+          "y": 25
+        },
+        {
+          "id": "C",
+          "x": 60,
+          "y": 125
+        },
+        {
+          "id": "B",
+          "x": 240,
+          "y": 25
+        },
+        {
+          "id": "D",
+          "x": 250,
+          "y": 125
+        }
+      ],
+      "elk": [
+        {
+          "id": "A",
+          "x": 72,
+          "y": 37
+        },
+        {
+          "id": "C",
+          "x": 72,
+          "y": 127
+        },
+        {
+          "id": "B",
+          "x": 212,
+          "y": 37
+        },
+        {
+          "id": "D",
+          "x": 212,
+          "y": 127
+        }
+      ]
+    },
+    {
+      "sample": "diamond",
+      "dagre_version": "1.1.5",
+      "note": "Uniform abstract boxes; compare topology and alignment, not browser pixels or terminal cell dimensions. ELK uses unit edge lengths.",
+      "dagre": [
+        {
+          "id": "Request",
+          "x": 145,
+          "y": 25
+        },
+        {
+          "id": "Check",
+          "x": 145,
+          "y": 125
+        },
+        {
+          "id": "Accept",
+          "x": 60,
+          "y": 225
+        },
+        {
+          "id": "Reject",
+          "x": 230,
+          "y": 225
+        },
+        {
+          "id": "Done",
+          "x": 145,
+          "y": 325
+        }
+      ],
+      "elk": [
+        {
+          "id": "Request",
+          "x": 92,
+          "y": 37
+        },
+        {
+          "id": "Check",
+          "x": 92,
+          "y": 107
+        },
+        {
+          "id": "Accept",
+          "x": 212,
+          "y": 177
+        },
+        {
+          "id": "Reject",
+          "x": 72,
+          "y": 177
+        },
+        {
+          "id": "Done",
+          "x": 92,
+          "y": 247
+        }
+      ]
+    },
+    {
+      "sample": "disconnected",
+      "dagre_version": "1.1.5",
+      "note": "Uniform abstract boxes; compare topology and alignment, not browser pixels or terminal cell dimensions. ELK uses unit edge lengths.",
+      "dagre": [
+        {
+          "id": "A",
+          "x": 60,
+          "y": 25
+        },
+        {
+          "id": "B",
+          "x": 60,
+          "y": 125
+        },
+        {
+          "id": "C",
+          "x": 60,
+          "y": 225
+        },
+        {
+          "id": "X",
+          "x": 230,
+          "y": 25
+        },
+        {
+          "id": "Y",
+          "x": 230,
+          "y": 125
+        },
+        {
+          "id": "Standalone",
+          "x": 400,
+          "y": 25
+        }
+      ],
+      "elk": [
+        {
+          "id": "A",
+          "x": 72,
+          "y": 177
+        },
+        {
+          "id": "B",
+          "x": 72,
+          "y": 247
+        },
+        {
+          "id": "C",
+          "x": 72,
+          "y": 317
+        },
+        {
+          "id": "X",
+          "x": 212,
+          "y": 37
+        },
+        {
+          "id": "Y",
+          "x": 212,
+          "y": 107
+        },
+        {
+          "id": "Standalone",
+          "x": 72,
+          "y": 37
+        }
+      ]
+    },
+    {
+      "sample": "fan_in",
+      "dagre_version": "1.1.5",
+      "note": "Uniform abstract boxes; compare topology and alignment, not browser pixels or terminal cell dimensions. ELK uses unit edge lengths.",
+      "dagre": [
+        {
+          "id": "SensorA",
+          "x": 60,
+          "y": 25
+        },
+        {
+          "id": "Collector",
+          "x": 230,
+          "y": 125
+        },
+        {
+          "id": "SensorB",
+          "x": 230,
+          "y": 25
+        },
+        {
+          "id": "SensorC",
+          "x": 400,
+          "y": 25
+        },
+        {
+          "id": "Database",
+          "x": 230,
+          "y": 225
+        }
+      ],
+      "elk": [
+        {
+          "id": "SensorA",
+          "x": 352,
+          "y": 37
+        },
+        {
+          "id": "Collector",
+          "x": 212,
+          "y": 107
+        },
+        {
+          "id": "SensorB",
+          "x": 212,
+          "y": 37
+        },
+        {
+          "id": "SensorC",
+          "x": 72,
+          "y": 37
+        },
+        {
+          "id": "Database",
+          "x": 212,
+          "y": 177
+        }
+      ]
+    },
+    {
+      "sample": "fan_out",
+      "dagre_version": "1.1.5",
+      "note": "Uniform abstract boxes; compare topology and alignment, not browser pixels or terminal cell dimensions. ELK uses unit edge lengths.",
+      "dagre": [
+        {
+          "id": "Dispatcher",
+          "x": 315,
+          "y": 25
+        },
+        {
+          "id": "WorkerA",
+          "x": 60,
+          "y": 125
+        },
+        {
+          "id": "WorkerB",
+          "x": 230,
+          "y": 125
+        },
+        {
+          "id": "WorkerC",
+          "x": 400,
+          "y": 125
+        },
+        {
+          "id": "WorkerD",
+          "x": 570,
+          "y": 125
+        }
+      ],
+      "elk": [
+        {
+          "id": "Dispatcher",
+          "x": 108,
+          "y": 37
+        },
+        {
+          "id": "WorkerA",
+          "x": 352,
+          "y": 127
+        },
+        {
+          "id": "WorkerB",
+          "x": 492,
+          "y": 127
+        },
+        {
+          "id": "WorkerC",
+          "x": 72,
+          "y": 127
+        },
+        {
+          "id": "WorkerD",
+          "x": 212,
+          "y": 127
+        }
+      ]
+    },
+    {
+      "sample": "feedback",
+      "dagre_version": "1.1.5",
+      "note": "Uniform abstract boxes; compare topology and alignment, not browser pixels or terminal cell dimensions. ELK uses unit edge lengths.",
+      "dagre": [
+        {
+          "id": "Start",
+          "x": 60,
+          "y": 25
+        },
+        {
+          "id": "Work",
+          "x": 60,
+          "y": 125
+        },
+        {
+          "id": "Check",
+          "x": 60,
+          "y": 225
+        },
+        {
+          "id": "Finish",
+          "x": 60,
+          "y": 325
+        }
+      ],
+      "elk": [
+        {
+          "id": "Start",
+          "x": 242,
+          "y": 37
+        },
+        {
+          "id": "Work",
+          "x": 212,
+          "y": 117
+        },
+        {
+          "id": "Check",
+          "x": 102,
+          "y": 37
+        },
+        {
+          "id": "Finish",
+          "x": 72,
+          "y": 117
+        }
+      ]
+    },
+    {
+      "sample": "shortcut",
+      "dagre_version": "1.1.5",
+      "note": "Uniform abstract boxes; compare topology and alignment, not browser pixels or terminal cell dimensions. ELK uses unit edge lengths.",
+      "dagre": [
+        {
+          "id": "Start",
+          "x": 60,
+          "y": 25
+        },
+        {
+          "id": "Finish",
+          "x": 60,
+          "y": 325
+        },
+        {
+          "id": "Parse",
+          "x": 107.5,
+          "y": 125
+        },
+        {
+          "id": "Validate",
+          "x": 107.5,
+          "y": 225
+        }
+      ],
+      "elk": [
+        {
+          "id": "Start",
+          "x": 92,
+          "y": 37
+        },
+        {
+          "id": "Finish",
+          "x": 92,
+          "y": 247
+        },
+        {
+          "id": "Parse",
+          "x": 72,
+          "y": 107
+        },
+        {
+          "id": "Validate",
+          "x": 72,
+          "y": 177
+        }
+      ]
+    },
+    {
+      "sample": "storage_architecture",
+      "dagre_version": "1.1.5",
+      "note": "Uniform abstract boxes; compare topology and alignment, not browser pixels or terminal cell dimensions. ELK uses unit edge lengths.",
+      "dagre": [
+        {
+          "id": "App",
+          "x": 240,
+          "y": 25
+        },
+        {
+          "id": "Client",
+          "x": 250,
+          "y": 125
+        },
+        {
+          "id": "Master",
+          "x": 675,
+          "y": 25
+        },
+        {
+          "id": "Memory",
+          "x": 60,
+          "y": 225
+        },
+        {
+          "id": "Offload",
+          "x": 155,
+          "y": 325
+        },
+        {
+          "id": "SSD",
+          "x": 155,
+          "y": 475
+        },
+        {
+          "id": "NoF",
+          "x": 250,
+          "y": 225
+        },
+        {
+          "id": "DFS",
+          "x": 420,
+          "y": 225
+        },
+        {
+          "id": "Disk",
+          "x": 590,
+          "y": 225
+        }
+      ],
+      "elk": [
+        {
+          "id": "App",
+          "x": 524,
+          "y": 37
+        },
+        {
+          "id": "Client",
+          "x": 504,
+          "y": 107
+        },
+        {
+          "id": "Master",
+          "x": 72,
+          "y": 37
+        },
+        {
+          "id": "Memory",
+          "x": 544,
+          "y": 207
+        },
+        {
+          "id": "Offload",
+          "x": 333,
+          "y": 277
+        },
+        {
+          "id": "SSD",
+          "x": 333,
+          "y": 347
+        },
+        {
+          "id": "NoF",
+          "x": 263,
+          "y": 207
+        },
+        {
+          "id": "DFS",
+          "x": 123,
+          "y": 207
+        },
+        {
+          "id": "Disk",
+          "x": 404,
+          "y": 207
+        }
+      ]
+    }
+  ],
+  "current_module_sha256": {
+    "layers.py": "1233bd31d22c2bd45136931de00badb02df653589157257ef7130f390c738778",
+    "placement.py": "c964db149ce0a8932a2e55833cd86f0ec3e3b35a5696476a1a35dc643b6c8687",
+    "router.py": "59bc2b4556016869f3a029be35a2e2e51d72cb09cd478f949a2a308ea225badb",
+    "draw.py": "801f045bf16105d79eaccfa50780d9fef30870342ae282529da9e50abaa52c2f"
+  }
+}

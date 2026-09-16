@@ -1,6 +1,6 @@
 """Renderer for ER diagrams.
 
-Renders an ERDiagram directly to a Canvas using layered layout,
+Renders an ERDiagram directly to a LayoutScene using layered layout,
 following the same pattern as the class diagram renderer.
 """
 from __future__ import annotations
@@ -8,7 +8,7 @@ from __future__ import annotations
 from collections import deque
 
 from ..model.erdiagram import Entity, ERDiagram, Relationship
-from .canvas import Canvas
+from ..layout.scene import LayoutScene
 from .charset import ASCII, UNICODE, CharSet
 from ..utils import display_width
 
@@ -70,7 +70,7 @@ def _compute_box_size(entity: Entity, padding_x: int = _PAD) -> tuple[int, int]:
 
 
 def _draw_entity_box(
-    canvas: Canvas, x: int, y: int, entity: Entity, cs: CharSet,
+    canvas: LayoutScene, x: int, y: int, entity: Entity, cs: CharSet,
     padding_x: int = _PAD,
 ) -> tuple[int, int]:
     """Draw an entity box and return (width, height)."""
@@ -287,7 +287,7 @@ def _compute_layout(
 
 
 def _draw_routed_line(
-    canvas: Canvas,
+    canvas: LayoutScene,
     r1: int, c1: int, r2: int, c2: int,
     h_char: str, v_char: str, use_ascii: bool,
     style: str = "edge",
@@ -321,7 +321,7 @@ def _draw_routed_line(
 
 
 def _draw_relationship(
-    canvas: Canvas,
+    canvas: LayoutScene,
     rel: Relationship,
     positions: dict[str, tuple[int, int]],
     sizes: dict[str, tuple[int, int]],
@@ -457,13 +457,13 @@ def _compute_exit_offsets(
     return offsets
 
 
-def render_er_diagram(diagram: ERDiagram, *, use_ascii: bool = False, padding_x: int = 2, gap: int = 4) -> Canvas:
-    """Render an ERDiagram to a Canvas."""
+def render_er_diagram(diagram: ERDiagram, *, use_ascii: bool = False, padding_x: int = 2, gap: int = 4) -> LayoutScene:
+    """Render an ERDiagram to a LayoutScene."""
     cs = ASCII if use_ascii else UNICODE
 
     positions, sizes, width, height, layer_of = _compute_layout(diagram, padding_x=padding_x, gap=gap)
     if width <= 1:
-        return Canvas(1, 1)
+        return LayoutScene(1, 1)
 
     # Expand canvas to fit relationship labels and cardinality text
     for rel in diagram.relationships:
@@ -484,7 +484,7 @@ def render_er_diagram(diagram: ERDiagram, *, use_ascii: bool = False, padding_x:
 
     exit_offsets = _compute_exit_offsets(diagram, layer_of)
 
-    canvas = Canvas(width, height)
+    canvas = LayoutScene(width, height)
 
     # Draw relationships first (background)
     for i, rel in enumerate(diagram.relationships):

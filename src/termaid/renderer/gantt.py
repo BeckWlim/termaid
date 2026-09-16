@@ -10,7 +10,7 @@ from datetime import date, timedelta
 
 from ..model.gantt import Gantt
 from ..utils import display_width, truncate_to_width
-from .canvas import Canvas
+from ..layout.scene import LayoutScene
 
 
 _DEFAULT_WIDTH = 80
@@ -26,10 +26,10 @@ def render_gantt(
     *,
     use_ascii: bool = False,
     width: int = _DEFAULT_WIDTH,
-) -> Canvas:
-    """Render a Gantt model to a Canvas."""
+) -> LayoutScene:
+    """Render a Gantt model to a LayoutScene."""
     if not diagram.sections:
-        return Canvas(1, 1)
+        return LayoutScene(1, 1)
 
     bar_char = "#" if use_ascii else _BAR_CHAR
     active_char = "=" if use_ascii else _ACTIVE_CHAR
@@ -75,7 +75,7 @@ def render_gantt(
         max_label_width = max(max_label_width, display_width(section.title) + 2)
 
     if min_date is None or max_date is None:
-        return Canvas(1, 1)
+        return LayoutScene(1, 1)
 
     # Ensure at least 1 day range
     total_days = (max_date - min_date).days
@@ -101,7 +101,7 @@ def render_gantt(
     total_h = title_rows + task_rows + axis_rows + 1
     total_w = margin_l + chart_w + 1
 
-    canvas = Canvas(total_w + 1, total_h + 1)
+    canvas = LayoutScene(total_w + 1, total_h + 1)
 
     # Title
     if diagram.title:

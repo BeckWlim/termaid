@@ -8,6 +8,34 @@ model copies, and bounded quality search remain enabled.
 
 ## Measurements
 
+### Unified planning and routing update
+
+The shared planning layer freezes the completed scene for reuse by plain text,
+Rich, and styled JSON. This adds a cell snapshot allocation; graph routing also
+does more work to keep branches, labels, and opposing lanes distinct. The
+following warm measurements compare commit `88651629` with this update using
+three measured runs after one warm-up, sequentially without concurrent tests.
+Layouts intentionally differ, so these measure the complete behavior change.
+
+| Fixture | Width | `88651629`, ms | Unified planning, ms |
+|---|---:|---:|---:|
+| Architecture | 68 | 64.2 | 88.0 |
+| Architecture | 100 | 66.5 | 89.7 |
+| Architecture | 160 | 76.8 | 96.0 |
+| Supervisor state | 68 | 176.1 | 164.1 |
+| Supervisor state | 100 | 164.3 | 162.6 |
+| Supervisor state | 160 | 153.4 | 172.2 |
+| Lease race sequence | 68 | 85.2 | 131.1 |
+| Lease race sequence | 100 | 87.1 | 131.6 |
+| Lease race sequence | 160 | 16.5 | 24.4 |
+
+This is a layout-quality and shared-planning change, not a speed improvement.
+Architecture and sequence fitting cost more in these samples; state timings
+are mixed. Host variability remains significant. Raw timings, hashes, and
+interpreter details are in [unified-layout.json](../benchmarks/results/unified-layout.json).
+
+### Earlier reconstruction measurements
+
 Measured locally with the same Python interpreter, source fixtures, and editor
 arguments. Baseline is commit `8960119`; “before” is the reconstructed renderer
 before these optimizations; “optimized” includes them. Each warm result is the

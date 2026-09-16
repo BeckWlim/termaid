@@ -52,19 +52,18 @@ def test_middle_choice_survives_strict_width_fitting(output_format, initial_gap,
         output = '\n'.join(''.join(chunk['text'] for chunk in row) for row in document['lines'])
     else:
         output = captured.out
-    assert sum(output.count(head) for head in '►◄▲▼') == 6
+    assert sum(output.count(head) for head in '▶◀▲▼') == 6
     assert 'x' in output and '╳' not in output  # Crossing remains distinguishable from a junction.
-    # Spacing feedback recovers edge01 beside its route. Only edge07 still
-    # needs a reference, and all six edge labels remain present exactly once.
-    assert output.count('[1]') == 2 and '[2]' not in output
-    assert '[1] edge07' in output
+    # A better rank/route may recover all labels, or move the reference to
+    # another edge. Require complete labels and at most one paired reference.
+    assert output.count('[1]') in (0, 2) and '[2]' not in output
     assert all(output.count(f'edge{number:02}') == 1 for number in (1, 2, 3, 5, 6, 7))
     assert max(map(display_width, output.splitlines())) <= 25
     for node_number in range(6):
         assert f'N{node_number}' in output
 
 
-@pytest.mark.parametrize('direction,head', [('TD', '▼'), ('BT', '▲'), ('LR', '►'), ('RL', '◄')])
+@pytest.mark.parametrize('direction,head', [('TD', '▼'), ('BT', '▲'), ('LR', '▶'), ('RL', '◀')])
 def test_middle_heads_preserve_direction_and_adapter_parity(direction, head):
     source = f'graph {direction}\nA --> B'
     default_output = render(source, gap=8)
@@ -82,8 +81,8 @@ def test_middle_heads_preserve_direction_and_adapter_parity(direction, head):
 @pytest.mark.parametrize('use_ascii', [False, True])
 def test_bidirectional_heads_have_distinct_cells(use_ascii):
     output = render('graph LR\nA <--> B', gap=8, arrow_position='middle', use_ascii=use_ascii)
-    assert output.count('<' if use_ascii else '◄') == 1
-    assert output.count('>' if use_ascii else '►') == 1
+    assert output.count('<' if use_ascii else '◀') == 1
+    assert output.count('>' if use_ascii else '▶') == 1
 
 
 @pytest.mark.parametrize('connection', ['o--o', 'x--x', '---', '~~~'])

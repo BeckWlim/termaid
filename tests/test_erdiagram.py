@@ -188,7 +188,7 @@ class TestERDiagramRendering:
         )
         assert "CUSTOMER" in output
         assert "ORDER" in output
-        unicode_chars = set("┌┐└┘─│├┤┬┴┼╭╮╰╯►◄▲▼┄┆━┃╋")
+        unicode_chars = set("┌┐└┘─│├┤┬┴┼╭╮╰╯▶◀▲▼┄┆━┃╋")
         for ch in output:
             assert ch not in unicode_chars
 

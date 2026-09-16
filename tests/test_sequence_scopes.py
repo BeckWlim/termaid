@@ -68,8 +68,8 @@ def test_deep_frames_stay_outside_messages(depth: int, padding_x: int, gap: int)
         assert outer_left < inner_left < inner_right < outer_right
         assert outer_top < inner_top < inner_bottom < outer_bottom
     inner_left, inner_right, inner_top, inner_bottom = frames[-1]
-    arrow_row = next(line for line in lines[inner_top:inner_bottom] if "►" in line)
-    assert inner_left < arrow_row.index("─") < arrow_row.index("►") < inner_right
+    arrow_row = next(line for line in lines[inner_top:inner_bottom] if "▶" in line)
+    assert inner_left < arrow_row.index("─") < arrow_row.index("▶") < inner_right
     assert arrow_row[inner_left] == arrow_row[inner_right] == "│"
 
 

@@ -1,12 +1,12 @@
 """Renderer for block diagrams.
 
-Renders a BlockDiagram to a Canvas using explicit grid-based layout.
+Renders a BlockDiagram to a LayoutScene using explicit grid-based layout.
 """
 from __future__ import annotations
 
 from ..graph.shapes import NodeShape
 from ..model.blockdiagram import Block, BlockDiagram, BlockLink
-from .canvas import Canvas
+from ..layout.scene import LayoutScene
 from .charset import ASCII, UNICODE, CharSet
 from .shapes import SHAPE_RENDERERS
 from ..utils import display_width
@@ -21,12 +21,12 @@ _MARGIN = 2
 _GROUP_PAD = 2  # inner margin for nested groups
 
 
-def render_block_diagram(diagram: BlockDiagram, *, use_ascii: bool = False, padding_x: int = 2, gap: int = 4) -> Canvas:
-    """Render a BlockDiagram to a Canvas."""
+def render_block_diagram(diagram: BlockDiagram, *, use_ascii: bool = False, padding_x: int = 2, gap: int = 4) -> LayoutScene:
+    """Render a BlockDiagram to a LayoutScene."""
     cs = ASCII if use_ascii else UNICODE
 
     if not diagram.blocks:
-        return Canvas(1, 1)
+        return LayoutScene(1, 1)
 
     columns = diagram.columns
     if columns <= 0:
@@ -47,7 +47,7 @@ def render_block_diagram(diagram: BlockDiagram, *, use_ascii: bool = False, padd
     positions: dict[str, tuple[int, int]] = {}
     _compute_positions(grid, col_widths, row_heights, block_sizes, positions, col_gap=gap)
 
-    # Canvas size
+    # LayoutScene size
     total_w = _MARGIN * 2 + sum(col_widths) + gap * max(0, col_count - 1)
     total_h = _MARGIN * 2 + sum(row_heights) + _ROW_GAP * max(0, len(grid) - 1)
 
@@ -55,7 +55,7 @@ def render_block_diagram(diagram: BlockDiagram, *, use_ascii: bool = False, padd
     total_w = max(total_w, 20)
     total_h = max(total_h, 5)
 
-    canvas = Canvas(total_w, total_h)
+    canvas = LayoutScene(total_w, total_h)
 
     # Draw group borders (background)
     _draw_groups(canvas, diagram.blocks, positions, block_sizes, cs)
@@ -270,7 +270,7 @@ def _position_children(
 
 
 def _draw_blocks(
-    canvas: Canvas,
+    canvas: LayoutScene,
     blocks: list[Block],
     positions: dict[str, tuple[int, int]],
     sizes: dict[str, tuple[int, int]],
@@ -303,7 +303,7 @@ def _draw_blocks(
 
 
 def _draw_groups(
-    canvas: Canvas,
+    canvas: LayoutScene,
     blocks: list[Block],
     positions: dict[str, tuple[int, int]],
     sizes: dict[str, tuple[int, int]],
@@ -345,7 +345,7 @@ def _draw_groups(
 
 
 def _draw_link(
-    canvas: Canvas,
+    canvas: LayoutScene,
     link: BlockLink,
     positions: dict[str, tuple[int, int]],
     sizes: dict[str, tuple[int, int]],
@@ -439,7 +439,7 @@ def _draw_link(
 
 
 def _draw_routed_line(
-    canvas: Canvas,
+    canvas: LayoutScene,
     r1: int, c1: int, r2: int, c2: int,
     h_char: str, v_char: str, use_ascii: bool,
     style: str = "edge",

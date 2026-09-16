@@ -19,6 +19,51 @@ from .grid import (
 )
 
 
+def _aligned_singleton_positions(graph: Graph, layer_order: list[list[str]]) -> dict[str, int]:
+    """Align solitary hubs with nearby peers without widening the node grid.
+
+    Use an existing median column (row for LR), so centering does not add
+    a new text-width column between two peers. Compound and explicit grids
+    retain their own membership/coordinate rules.
+    """
+    positions = {node_id: position for nodes in layer_order
+                 for position, node_id in enumerate(nodes)}
+    if graph.subgraphs or graph.grid_positions:
+        return positions
+    node_layers = {node_id: layer_index for layer_index, nodes in enumerate(layer_order)
+                   for node_id in nodes}
+    if any(node_layers.get(edge.target, 0) <= node_layers.get(edge.source, 0)
+           for edge in graph.edges):
+        # Feedback corridors depend on the first column remaining available.
+        return positions
+    for layer_index in range(len(layer_order) - 1, -1, -1):
+        nodes = layer_order[layer_index]
+        if len(nodes) != 1:
+            continue
+        node_id = nodes[0]
+        child_positions = sorted({positions[edge.target] for edge in graph.edges
+                                  if edge.source == node_id
+                                  and node_layers.get(edge.target) == layer_index + 1})
+        parent_positions = sorted({positions[edge.source] for edge in graph.edges
+                                   if edge.target == node_id
+                                   and node_layers.get(edge.source) == layer_index - 1})
+        neighbors = (parent_positions if len(parent_positions) > 1 and len(child_positions) < 2
+                     else child_positions or parent_positions)
+        if neighbors:
+            positions[node_id] = neighbors[(len(neighbors) - 1) // 2]
+    # Carry a hub's alignment through its single-node continuation. A leaf
+    # must not anchor its collecting parent back at the leftmost column.
+    for layer_index, nodes in enumerate(layer_order):
+        if len(nodes) != 1 or layer_index == 0 or len(layer_order[layer_index - 1]) != 1:
+            continue
+        node_id = nodes[0]
+        parent_id = layer_order[layer_index - 1][0]
+        if (any(edge.source == parent_id and edge.target == node_id for edge in graph.edges)
+                and len({edge.target for edge in graph.edges if edge.source == node_id}) <= 1):
+            positions[node_id] = positions[parent_id]
+    return positions
+
+
 def place_nodes(
     graph: Graph,
     layout: GridLayout,
@@ -33,11 +78,13 @@ def place_nodes(
     room to route crossing edges without overlap.
     """
     expansions = gap_expansions or {}
+    perpendicular_positions = _aligned_singleton_positions(graph, layer_order)
     cumulative_extra = 0
     for layer_idx, nodes in enumerate(layer_order):
         if layer_idx > 0:
             cumulative_extra += expansions.get(layer_idx - 1, 0)
-        for pos_idx, nid in enumerate(nodes):
+        for nid in nodes:
+            pos_idx = perpendicular_positions[nid]
             if direction.is_horizontal:
                 col = layer_idx * STRIDE + 1 + cumulative_extra
                 row = pos_idx * STRIDE + 1
@@ -181,6 +228,17 @@ def compute_sizes(
     max_label_width: int | None = None,
 ) -> None:
     """Compute column widths and row heights based on node content."""
+    fitted_horizontal = layout.width_budget is not None and graph.direction.normalized().is_horizontal
+    parallel_counts: dict[tuple[str, str], int] = {}
+    for edge in graph.edges:
+        if not edge.is_self_reference:
+            endpoints = (min(edge.source, edge.target), max(edge.source, edge.target))
+            parallel_counts[endpoints] = parallel_counts.get(endpoints, 0) + 1
+    parallel_capacity: dict[str, int] = {}
+    for endpoints, count in parallel_counts.items():
+        for node_id in endpoints:
+            parallel_capacity[node_id] = max(parallel_capacity.get(node_id, 1), count)
+
     for nid, placement in layout.placements.items():
         node = graph.nodes[nid]
 
@@ -193,7 +251,7 @@ def compute_sizes(
             continue
 
         label = node.label
-        lines = label.split("\\n") if "\\n" in label else [label]
+        lines = label.replace("\\n", "\n").split("\n")
 
         # Preserve the historical whitespace-only wrapping unless a caller
         # explicitly supplies a width-fitting constraint.
@@ -206,7 +264,7 @@ def compute_sizes(
                 wrapped_lines.extend(wrap_display_text(
                     line,
                     label_width,
-                    hard_break=max_label_width is not None,
+                    hard_break=max_label_width is not None and not fitted_horizontal,
                 ))
 
         # Update the node's label with wrapped text
@@ -225,6 +283,26 @@ def compute_sizes(
         # Ensure minimum sizes
         content_width = max(content_width, 3)
         content_height = max(content_height, 1)
+
+        if fitted_horizontal:
+            incoming_sources = {edge.source for edge in graph.edges
+                                if edge.target == nid and not edge.is_self_reference}
+            if len(incoming_sources) > 1:
+                content_height = max(content_height, len(incoming_sources) * 2 - 1)
+
+        # Distinct edges between the same endpoints need distinct ports.
+        # Reserve enough border cells even with zero text padding.
+        parallel_count = parallel_capacity.get(nid, 1)
+        if parallel_count > 1:
+            if graph.direction.normalized().is_horizontal:
+                content_height = max(content_height, parallel_count * 2 - 1)
+            else:
+                label_spacing = max((
+                    max(map(display_width, edge.label.split("\n"))) + 2
+                    for edge in graph.edges if nid in (edge.source, edge.target)
+                ), default=4)
+                lane_spacing = 4 if max_label_width is not None else max(4, min(16, label_spacing))
+                content_width = max(content_width, (parallel_count - 1) * lane_spacing + 1)
 
         col = placement.grid.col
         row = placement.grid.row
@@ -265,7 +343,33 @@ def compute_sizes(
             layout.row_heights[r] = max(gap - 1, 1)  # gap rows
 
     # Expand gaps to fit edge labels
-    _expand_gaps_for_edge_labels(graph, layout, compact=max_label_width is not None)
+    _expand_gaps_for_edge_labels(graph, layout, compact=max_label_width is not None or fitted_horizontal)
+    if fitted_horizontal:
+        # Coarse routing lanes become distinct character columns. Reserve
+        # clearance only across transitions used by multiple connections.
+        node_columns = sorted({placement.grid.col for placement in layout.placements.values()})
+        for left_col, right_col in zip(node_columns, node_columns[1:]):
+            crossing_edges = [edge for edge in graph.edges
+                              if edge.source in layout.placements and edge.target in layout.placements
+                              and min(layout.placements[edge.source].grid.col, layout.placements[edge.target].grid.col) <= left_col
+                              and max(layout.placements[edge.source].grid.col, layout.placements[edge.target].grid.col) >= right_col]
+            if len(crossing_edges) > 1:
+                for gap_col in range(left_col + 2, right_col - 1):
+                    layout.col_widths[gap_col] = max(layout.col_widths.get(gap_col, 1), 3)
+    for (source_id, target_id), count in parallel_counts.items():
+        if count < 2 or source_id not in layout.placements:
+            continue
+        pair_placements = [layout.placements[node_id] for node_id in (source_id, target_id)
+                           if node_id in layout.placements]
+        source = min(pair_placements, key=lambda placement: (
+            placement.grid.col if graph.direction.normalized().is_horizontal else placement.grid.row
+        ))
+        if graph.direction.normalized().is_horizontal:
+            gap_col = source.grid.col + 2
+            layout.col_widths[gap_col] = max(layout.col_widths.get(gap_col, 1), 5)
+        else:
+            gap_row = source.grid.row + 2
+            layout.row_heights[gap_row] = max(layout.row_heights.get(gap_row, 1), 5)
 
 
 def _expand_gaps_for_edge_labels(
@@ -283,7 +387,8 @@ def _expand_gaps_for_edge_labels(
     for edge in graph.edges:
         if not edge.label:
             continue
-        label_len = display_width(edge.label)
+        label_lines = edge.label.split("\n")
+        label_len = max(map(display_width, label_lines))
 
         src_p = layout.placements.get(edge.source)
         tgt_p = layout.placements.get(edge.target)
@@ -301,6 +406,13 @@ def _expand_gaps_for_edge_labels(
                 continue
             # Need: gap_width + 1 >= label_len + 2  ->  gap_width >= label_len + 1
             needed = label_len + 1
+            if compact and layout.width_budget is not None:
+                # A sentence can wrap beside its route. Its longest word
+                # sets the readable floor, not the width of the full label.
+                word_width = max(map(display_width, edge.label.split()), default=0)
+                needed = min(needed, max(8, word_width))
+                if len(edge.label.split()) == 1:
+                    needed = max(needed, label_len + 3)
             # Distribute across first gap cell (simplest approach)
             cur = layout.col_widths.get(gap_start, 4)
             layout.col_widths[gap_start] = max(cur, needed)
@@ -316,7 +428,7 @@ def _expand_gaps_for_edge_labels(
                 continue
             # Need enough vertical space: at least 2 rows for the label
             cur = layout.row_heights.get(gap_start, 3)
-            layout.row_heights[gap_start] = max(cur, 3)
+            layout.row_heights[gap_start] = max(cur, len(label_lines) + 2, 3)
 
             # Fitted vertical diagrams place labels in the routing rows.
             # Reserving the entire label in every crossed column gap
@@ -365,3 +477,71 @@ def _expand_gaps_for_edge_labels(
             needed = count * 2 + 1  # 2 rows per label + spacing
             cur = layout.row_heights.get(gap_row, 3)
             layout.row_heights[gap_row] = max(cur, needed)
+
+
+def allocate_label_slack(graph: Graph, layout: GridLayout) -> bool:
+    """Spend remaining width on label corridors after measuring nodes and frames.
+
+    Horizontal approaches favor complete short labels; opposing vertical
+    ports favor room for wrapped labels. Both allocations stay within the
+    remaining budget instead of stretching every gap.
+    """
+    if layout.width_budget is None:
+        return False
+    if not graph.direction.normalized().is_horizontal:
+        return _allocate_reciprocal_label_slack(graph, layout)
+    available = max(0, layout.width_budget - layout.canvas_width)
+    node_columns = sorted({placement.grid.col for placement in layout.placements.values()})
+    previous_columns = dict(zip(node_columns[1:], node_columns))
+    changed = False
+    for edge in sorted(graph.edges, key=lambda item: display_width(item.label)):
+        label_width = display_width(edge.label)
+        if not 1 <= label_width <= 16 or '\n' in edge.label:
+            continue
+        source = layout.placements.get(edge.source)
+        target = layout.placements.get(edge.target)
+        if source is None or target is None or previous_columns.get(target.grid.col) != source.grid.col:
+            continue
+        outgoing = sum(candidate.source == edge.source for candidate in graph.edges)
+        start_col = source.grid.col + (2 if outgoing > 1 else 1)
+        approach_start, _ = layout.grid_to_draw_center(start_col, source.grid.row)
+        approach_end, _ = layout.grid_to_draw_center(target.grid.col - 1, target.grid.row)
+        needed = max(0, label_width + 3 - (approach_end - approach_start))
+        if 0 < needed <= available:
+            gap_col = target.grid.col - 2
+            layout.col_widths[gap_col] = layout.col_widths.get(gap_col, 1) + needed
+            available -= needed
+            changed = True
+    return changed
+
+
+def _allocate_reciprocal_label_slack(graph: Graph, layout: GridLayout) -> bool:
+    """Separate opposing vertical ports when the terminal has spare columns.
+
+    Labels between reciprocal routes need space on both sides of the middle
+    port. Keep a margin for outer return labels and spend only the remaining
+    budget; an unfitted diagram keeps its ordinary node sizing.
+    """
+    if layout.width_budget is None or graph.subgraphs or graph.grid_positions:
+        return False
+    edge_pairs = {(edge.source, edge.target) for edge in graph.edges}
+    desired_widths: dict[int, int] = {}
+    for edge in graph.edges:
+        if not edge.label or (edge.target, edge.source) not in edge_pairs:
+            continue
+        source = layout.placements.get(edge.source)
+        target = layout.placements.get(edge.target)
+        if source is None or target is None or source.grid.col != target.grid.col:
+            continue
+        corridor_width = min(16, display_width(edge.label))
+        desired_widths[source.grid.col] = max(desired_widths.get(source.grid.col, 0), 2 * corridor_width + 3)
+    outer_label_margin = max((display_width(word) for edge in graph.edges for word in edge.label.split()), default=0) + 2
+    available = max(0, layout.width_budget - layout.canvas_width - outer_label_margin)
+    changed = False
+    for column, desired_width in sorted(desired_widths.items()):
+        growth = min(available, max(0, desired_width - layout.col_widths[column]))
+        if growth:
+            layout.col_widths[column] += growth
+            available -= growth
+            changed = True
+    return changed

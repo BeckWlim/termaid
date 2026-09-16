@@ -258,7 +258,7 @@ class TestSequenceRendering:
 
     def test_solid_arrow_char(self):
         output = render("sequenceDiagram\n  A->>B: msg")
-        assert "►" in output
+        assert "▶" in output
 
     def test_dashed_arrow_char(self):
         output = render("sequenceDiagram\n  A-->>B: reply")
@@ -288,7 +288,7 @@ class TestSequenceRendering:
         )
         assert "A" in output
         assert "B" in output
-        unicode_chars = set("┌┐└┘─│├┤┬┴┼╭╮╰╯►◄▲▼┄┆━┃╋")
+        unicode_chars = set("┌┐└┘─│├┤┬┴┼╭╮╰╯▶◀▲▼┄┆━┃╋")
         for ch in output:
             assert ch not in unicode_chars
 

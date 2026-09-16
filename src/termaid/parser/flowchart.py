@@ -167,7 +167,7 @@ def _parse_markdown_label(text: str) -> tuple[str, list[LabelSegment]] | None:
     if not (stripped.startswith('"`') and stripped.endswith('`"')):
         return None
 
-    md = stripped[2:-2]  # strip "` and `"
+    md = _normalize_label_breaks(stripped[2:-2])  # strip "` and `"
     segments: list[LabelSegment] = []
     plain_parts: list[str] = []
     i = 0
@@ -191,7 +191,7 @@ def _parse_markdown_label(text: str) -> tuple[str, list[LabelSegment]] | None:
                 i = end + 1
                 continue
         # Plain text: collect until next *
-        j = i
+        j = i + 1
         while j < len(md) and md[j] != "*":
             j += 1
         segments.append(LabelSegment(text=md[i:j]))
@@ -226,6 +226,11 @@ def _strip_quotes(text: str) -> str:
     if len(text) >= 2 and text[0] == '"' and text[-1] == '"':
         return text[1:-1]
     return text
+
+
+def _normalize_label_breaks(text: str) -> str:
+    """Decode Mermaid's HTML line breaks after extracting a label."""
+    return re.sub(r"<br\s*/?>", "\n", text, flags=re.IGNORECASE)
 
 
 def _split_on_semicolons(line: str) -> list[str]:
@@ -356,7 +361,7 @@ class _FlowchartParser:
         sg_label = rest
 
         # Check for 'id [label]' pattern
-        bracket_match = re.match(r'(\S+)\s+\[(.+)\]', rest)
+        bracket_match = re.fullmatch(r'([^\s\[\]]+)\s*\[(.*)\]', rest)
         if bracket_match:
             sg_id = bracket_match.group(1)
             sg_label = bracket_match.group(2)
@@ -366,12 +371,9 @@ class _FlowchartParser:
             sg_id = rest.split()[0]
             sg_label = rest
 
-        sg_id = _strip_quotes(sg_id)
-        sg_label = _strip_quotes(sg_label)
-
         sg = Subgraph(
-            id=sg_id,
-            label=sg_label,
+            id=_strip_quotes(sg_id),
+            label=_normalize_label_breaks(_strip_quotes(sg_label)),
             parent=self._subgraph_stack[-1] if self._subgraph_stack else None,
         )
 
@@ -664,7 +666,7 @@ class _FlowchartParser:
                 has_arrow_end=arr_end,
                 arrow_type_start=type_start,
                 arrow_type_end=type_end,
-                label=label,
+                label=_normalize_label_breaks(label),
                 min_length=length,
             ))
 
@@ -764,23 +766,25 @@ class _FlowchartParser:
         if not text:
             return None
 
-        text = text.strip().rstrip(";")
+        declaration = text.strip().rstrip(";")
 
         # Handle :::className suffix
         style_class: str | None = None
-        if ":::" in text:
-            text, style_class = text.rsplit(":::", 1)
-            text = text.strip()
-            style_class = style_class.strip()
+        if ":::" in declaration:
+            node_declaration, raw_style_class = declaration.rsplit(":::", 1)
+            node_text = node_declaration.strip()
+            style_class = raw_style_class.strip()
+        else:
+            node_text = declaration
 
         # Try @{...} syntax: ID@{ shape: diamond, label: "text" }
-        at_match = re.match(r'^([a-zA-Z_]\w*)\s*@\{(.+)\}$', text, re.DOTALL)
+        at_match = re.match(r'^([a-zA-Z_]\w*)\s*@\{(.+)\}$', node_text, re.DOTALL)
         if at_match:
             node_id = at_match.group(1)
             body = at_match.group(2)
             props = _parse_at_shape_props(body)
             shape_name = props.get("shape", "rect")
-            label = props.get("label", node_id)
+            label = _normalize_label_breaks(props.get("label", node_id))
             shape = _AT_SHAPE_MAP.get(shape_name, NodeShape.RECTANGLE)
             self._shaped_node_ids.add(node_id)
             return Node(
@@ -792,15 +796,15 @@ class _FlowchartParser:
 
         # Try each shape pattern
         for open_delim, close_delim, shape in _SHAPE_PATTERNS:
-            idx = text.find(open_delim)
+            idx = node_text.find(open_delim)
             if idx > 0:
                 # Skip if the delimiter is inside a quoted string
-                if _inside_quotes(text, idx):
+                if _inside_quotes(node_text, idx):
                     continue
                 # Check if it ends with close_delim
-                rest = text[idx + len(open_delim):]
+                rest = node_text[idx + len(open_delim):]
                 if rest.endswith(close_delim):
-                    node_id = text[:idx].strip()
+                    node_id = node_text[:idx].strip()
                     raw_label = rest[:-len(close_delim)].strip()
                     if not node_id:
                         continue
@@ -816,7 +820,7 @@ class _FlowchartParser:
                             style_class=style_class,
                             label_segments=segments,
                         )
-                    label = _strip_quotes(raw_label)
+                    label = _normalize_label_breaks(_strip_quotes(raw_label))
                     return Node(
                         id=node_id,
                         label=label,
@@ -825,7 +829,7 @@ class _FlowchartParser:
                     )
 
         # Plain node ID (no shape delimiters)
-        node_id = text.strip()
+        node_id = node_text.strip()
         if not node_id or not re.match(r'^[a-zA-Z_][a-zA-Z0-9_]*$', node_id):
             # Try with quotes
             node_id = _strip_quotes(node_id)

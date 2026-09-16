@@ -1,0 +1,199 @@
+{
+  "baseline_commit": "88651629a94fffe1ccc08e242cccbb46f4b4d111",
+  "baseline": {
+    "source_root": "/tmp/termaid-baseline-check/src",
+    "python": "3.11.4 (main, Jul 29 2026, 21:27:37) [GCC 13.3.0]",
+    "repeats": 3,
+    "cold": false,
+    "measurements": [
+      {
+        "fixture": "production_architecture",
+        "width": 68,
+        "median_ms": 64.17093200070667,
+        "min_ms": 61.26547000167193,
+        "max_ms": 64.48355700194952,
+        "output_rows": 45,
+        "output_bytes": 15004,
+        "sha256": "1d9b281d0dcb5a139db4d0434bf586c544990623ce7cd222030193fd62aeaeb8"
+      },
+      {
+        "fixture": "production_architecture",
+        "width": 100,
+        "median_ms": 66.49408399971435,
+        "min_ms": 63.78258999757236,
+        "max_ms": 70.66714100074023,
+        "output_rows": 37,
+        "output_bytes": 12909,
+        "sha256": "992359f948619e410e180246a57725aae364961f42a8758c2fc2e3069c2f0129"
+      },
+      {
+        "fixture": "production_architecture",
+        "width": 160,
+        "median_ms": 76.82818099783617,
+        "min_ms": 75.50000400078716,
+        "max_ms": 77.71441999648232,
+        "output_rows": 33,
+        "output_bytes": 12638,
+        "sha256": "8bc36ab930b30ab309b8ff160b190a06c854f3da1296e528b21064ca7ba4234b"
+      },
+      {
+        "fixture": "production_supervisor_state",
+        "width": 68,
+        "median_ms": 176.08215599830146,
+        "min_ms": 160.42279099929146,
+        "max_ms": 181.1492479973822,
+        "output_rows": 40,
+        "output_bytes": 11449,
+        "sha256": "c405e89f818c4dd4673b22f496a49195f40a73c8daade85754a7f3e575f864fb"
+      },
+      {
+        "fixture": "production_supervisor_state",
+        "width": 100,
+        "median_ms": 164.3234900002426,
+        "min_ms": 154.25592199972016,
+        "max_ms": 187.01654400138068,
+        "output_rows": 40,
+        "output_bytes": 11280,
+        "sha256": "a7828f651ad3d6fc917fee99a3bff59b4f8d25da8b57110efbe75d3d7eae2f52"
+      },
+      {
+        "fixture": "production_supervisor_state",
+        "width": 160,
+        "median_ms": 153.38936299667694,
+        "min_ms": 142.39340199856088,
+        "max_ms": 164.14914699998917,
+        "output_rows": 40,
+        "output_bytes": 11280,
+        "sha256": "a7828f651ad3d6fc917fee99a3bff59b4f8d25da8b57110efbe75d3d7eae2f52"
+      },
+      {
+        "fixture": "production_lease_race",
+        "width": 68,
+        "median_ms": 85.16075099760201,
+        "min_ms": 83.90810499986401,
+        "max_ms": 89.58092299872078,
+        "output_rows": 110,
+        "output_bytes": 41615,
+        "sha256": "c801c96f563e92a3b24bcd2bfb0dbf50dbcd916f4cf18ad61870762b9cb7b1f0"
+      },
+      {
+        "fixture": "production_lease_race",
+        "width": 100,
+        "median_ms": 87.08674800072913,
+        "min_ms": 84.23518400013563,
+        "max_ms": 88.73781600050279,
+        "output_rows": 89,
+        "output_bytes": 37429,
+        "sha256": "30f6d3164c401b5e2784a641589c9efd70065470f0f5e1a8ecfbd9fc9ec336eb"
+      },
+      {
+        "fixture": "production_lease_race",
+        "width": 160,
+        "median_ms": 16.51522900283453,
+        "min_ms": 15.864220000366913,
+        "max_ms": 16.84496800226043,
+        "output_rows": 71,
+        "output_bytes": 35429,
+        "sha256": "7eeff56889bc0a6db9c5812ca22a64250d49e2e6ab0d2c62d5a943f91e73e7d3"
+      }
+    ]
+  },
+  "unified_layout": {
+    "source_root": "/home/xffan2/.config/termaid/src",
+    "python": "3.11.4 (main, Jul 29 2026, 21:27:37) [GCC 13.3.0]",
+    "repeats": 3,
+    "cold": false,
+    "measurements": [
+      {
+        "fixture": "production_architecture",
+        "width": 68,
+        "median_ms": 88.00708099806798,
+        "min_ms": 86.67365899964352,
+        "max_ms": 92.7933410021069,
+        "output_rows": 45,
+        "output_bytes": 15690,
+        "sha256": "03e2e23a3758abc3a13988b2c059b328225e476ae77d8eab25c10aeb5a2cacca"
+      },
+      {
+        "fixture": "production_architecture",
+        "width": 100,
+        "median_ms": 89.7350759987603,
+        "min_ms": 89.04058400003123,
+        "max_ms": 99.59443300249404,
+        "output_rows": 37,
+        "output_bytes": 13476,
+        "sha256": "13175e02201bedd1f0769c2c2d0d6cd39e78a38253069b00c56a26aa3a7c330d"
+      },
+      {
+        "fixture": "production_architecture",
+        "width": 160,
+        "median_ms": 96.03168700050446,
+        "min_ms": 94.22529099902022,
+        "max_ms": 102.17841699704877,
+        "output_rows": 33,
+        "output_bytes": 13205,
+        "sha256": "82d975e5fd748b4f005248a79acd981649ee2b288b4584cab503195ac10d1992"
+      },
+      {
+        "fixture": "production_supervisor_state",
+        "width": 68,
+        "median_ms": 164.08593200321775,
+        "min_ms": 156.32702900256845,
+        "max_ms": 167.5608719997399,
+        "output_rows": 49,
+        "output_bytes": 13574,
+        "sha256": "19d74e7809e1188672c727212fd640824a5ff1528f41d3effe912d45457d2ccb"
+      },
+      {
+        "fixture": "production_supervisor_state",
+        "width": 100,
+        "median_ms": 162.58166699844878,
+        "min_ms": 160.82275900043896,
+        "max_ms": 172.80365799888386,
+        "output_rows": 48,
+        "output_bytes": 13435,
+        "sha256": "f0295568f86a2f35bcbb945ad7473398bf7f6b2d3e1b966c1ea5bdf1a764d6ec"
+      },
+      {
+        "fixture": "production_supervisor_state",
+        "width": 160,
+        "median_ms": 172.21634499946958,
+        "min_ms": 165.80409300149768,
+        "max_ms": 206.78353900075308,
+        "output_rows": 48,
+        "output_bytes": 13435,
+        "sha256": "f0295568f86a2f35bcbb945ad7473398bf7f6b2d3e1b966c1ea5bdf1a764d6ec"
+      },
+      {
+        "fixture": "production_lease_race",
+        "width": 68,
+        "median_ms": 131.1345939975581,
+        "min_ms": 129.66191499799606,
+        "max_ms": 133.01807400057442,
+        "output_rows": 110,
+        "output_bytes": 41615,
+        "sha256": "bbe9000bd42fd2e1611e2058f181bf041ac0f180bd590b84365c3ca67c329c6c"
+      },
+      {
+        "fixture": "production_lease_race",
+        "width": 100,
+        "median_ms": 131.6045080020558,
+        "min_ms": 129.48120500004734,
+        "max_ms": 140.9271769989573,
+        "output_rows": 89,
+        "output_bytes": 37429,
+        "sha256": "7914290b0e6dae7ccfb9ee55750785fd86e1daa754bfa55e8798970ad6820bdc"
+      },
+      {
+        "fixture": "production_lease_race",
+        "width": 160,
+        "median_ms": 24.43299800142995,
+        "min_ms": 23.395576001348672,
+        "max_ms": 33.446277000621194,
+        "output_rows": 71,
+        "output_bytes": 35429,
+        "sha256": "26bddfaafeb53d25f8a2d7cddb996558a24836fbbe9504bf28030e22dcea194f"
+      }
+    ]
+  }
+}

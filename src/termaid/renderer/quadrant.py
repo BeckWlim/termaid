@@ -7,7 +7,7 @@ from __future__ import annotations
 
 from ..model.quadrant import QuadrantChart
 from ..utils import display_width
-from .canvas import Canvas
+from ..layout.scene import LayoutScene
 
 
 _CHART_W = 60  # chart area width
@@ -20,8 +20,8 @@ def render_quadrant(
     diagram: QuadrantChart,
     *,
     use_ascii: bool = False,
-) -> Canvas:
-    """Render a QuadrantChart model to a Canvas."""
+) -> LayoutScene:
+    """Render a QuadrantChart model to a LayoutScene."""
     hz = "-" if use_ascii else "─"
     vt = "|" if use_ascii else "│"
     cross = "+" if use_ascii else "┼"
@@ -110,7 +110,7 @@ def render_quadrant(
     # Compute canvas size
     total_h = title_lines + _CHART_H + (2 if x_label_line else 0)
     width = _MARGIN_L + _CHART_W + 1
-    canvas = Canvas(width, total_h)
+    canvas = LayoutScene(width, total_h)
 
     # Write title lines
     for r, line in enumerate(lines):

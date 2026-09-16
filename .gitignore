@@ -19,3 +19,5 @@ demo/.DS_Store
 *.txt
 screenshot.png
 .plans/
+
+*.log

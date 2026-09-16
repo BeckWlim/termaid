@@ -2,10 +2,26 @@
 
 ## Unreleased
 
+### New
+- Optional `--diagnostics-format json` emits versioned errors and warnings for editor plugins, including stable codes, measured width/height limits, and process exit status.
+- Shared planning entry point for all 18 diagram types: `plan()` returns reusable geometry and styles for text, Rich, and styled JSON.
+- Unified directional triangles (`▲ ▶ ▼ ◀`); horizontal and vertical graph heads touch straight block borders by default. Shared destination ports render one compatible head, and identical duplicate edges share geometry without changing the model.
+- Branch buses turn before destination blocks, keep hit/miss labels beside their branches, and avoid overlapping unrelated buses.
+- Group-aware shared branch routing, independent duplicate/reciprocal lanes, and bounded crossing minimization before drawing.
+
+### Compatibility fixes
+- Compact subgraph declarations resolve the same IDs as spaced declarations; flowchart labels normalize HTML line breaks before measurement.
+- Shared endpoints no longer hide unrelated crossings after branches diverge. Branch labels avoid ambiguous shared trunks, and endpoint markers preserve crossings.
+- BT/RL layouts transform geometry before text placement, preserving readable labels and multiline order.
+
 ### Performance
 - Cache bounded character-width classifications, reuse immutable label measurements, and stream styled canvas rows without constructing a second full matrix. Rendering output is unchanged.
 
 ### Fixes
+- CLI formats now fit one common plan and serialize only the selected result. Shared-track alignment and directional connection rules are covered across all graph orientations; failed routing reports an error instead of drawing a diagonal fallback, and subgraph self-loops use an external orthogonal route.
+- Nested subgraph cycles no longer inflate layer counts until an iteration cap. Subgraph stacking keeps standalone callers ahead of their storage groups instead of enclosing them in unrelated frames.
+- Budgeted horizontal graphs retain whole identifiers, reclaim oversized edge-label gaps, reserve busy-corridor and frame clearance, and spend remaining width on short branch labels. Labels can extend beyond an exclusive segment when the surrounding space is clear; the integrated Mooncake fixture no longer needs references at 140, 180, or 220 columns.
+- Vertical reflow uses the available text width instead of a fixed five-character budget.
 - Sequence self-call loops have a proportional width cap independent of their label length; labels retain their clear space beside the lifeline.
 - Sequence message labels wrap between participant lifelines without erasing intermediate lines, including lease-race messages spanning several participants.
 - Graph and sequence labels use a shared reservation and validation layer before painting; repeated renders preserve the caller's original labels and models.

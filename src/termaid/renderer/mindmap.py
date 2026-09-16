@@ -12,7 +12,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 
 from ..model.mindmap import Mindmap, MindmapNode
-from .canvas import Canvas
+from ..layout.scene import LayoutScene
 from ..utils import display_width
 
 # When root has more children than this, spill some to the left
@@ -57,10 +57,10 @@ def render_mindmap(
     *,
     use_ascii: bool = False,
     rounded: bool = True,
-) -> Canvas:
-    """Render a Mindmap model to a Canvas."""
+) -> LayoutScene:
+    """Render a Mindmap model to a LayoutScene."""
     if diagram.root is None:
-        return Canvas(1, 1)
+        return LayoutScene(1, 1)
 
     ch = _make_chars(use_ascii, rounded)
     root = diagram.root
@@ -78,7 +78,7 @@ def render_mindmap(
 
     width = max((display_width(line) for line in lines), default=1)
     height = len(lines)
-    canvas = Canvas(width + 1, height)
+    canvas = LayoutScene(width + 1, height)
     for r, line in enumerate(lines):
         canvas.put_text(r, 0, line, style="node")
     return canvas

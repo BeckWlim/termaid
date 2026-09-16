@@ -1,0 +1,6 @@
+flowchart TB
+    Request --> Check{Allowed?}
+    Check -->|Yes| Accept
+    Check -->|No| Reject
+    Accept --> Done
+    Reject --> Done

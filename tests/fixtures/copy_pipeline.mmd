@@ -1,0 +1,27 @@
+flowchart TD
+    Workers[Model workers] --> Batch[Batch requests]
+    Batch --> Route[Route by key]
+    Route --> Lookup[Index lookup]
+    Lookup --> Ready{Ready copy?}
+    Ready -->|hit| Pin[Pin source]
+    Ready -->|miss| Allocate[Place copies]
+    Allocate --> Policy[Policy]
+    Policy --> Memory[Memory tier]
+    Policy --> SSD[SSD tier]
+    Memory --> Publish[Publish index]
+    SSD --> Publish
+    Publish --> Pin
+    Pin --> Transport{Link?}
+    Transport --> RailA[RDMA rail A]
+    Transport --> RailB[RDMA rail B]
+    Transport --> TCP[TCP fallback]
+    RailA --> Verify[Verify copy]
+    RailB --> Verify
+    TCP --> Verify
+    Verify --> Success{Complete?}
+    Success -->|yes| Reply[Return result]
+    Success -->|no| Retry[Retry budget]
+    Retry --> Route
+    Reply --> Release[Release pins]
+    Release --> Evict[Evict queue]
+    Evict --> Lookup
