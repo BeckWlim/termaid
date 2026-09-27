@@ -158,7 +158,8 @@ def plan(
     elif text.startswith("gantt"):
         from ..parser.timelines import parse_gantt
         from ..renderer.timelines import render_gantt
-        canvas = render_gantt(parse_gantt(text), use_ascii=use_ascii)
+        options = {"width": max_width} if max_width is not None else {}
+        canvas = render_gantt(parse_gantt(text), use_ascii=use_ascii, **options)
     elif text.startswith("architecture"):
         from ..parser.architecture import parse_architecture
         from ..renderer.draw import render_graph_canvas
@@ -177,11 +178,13 @@ def plan(
     elif text.startswith("pie"):
         from ..parser.charts import parse_pie_chart
         from ..renderer.charts import render_pie_chart
-        canvas = render_pie_chart(parse_pie_chart(text), use_ascii=use_ascii)
+        canvas = render_pie_chart(parse_pie_chart(text), use_ascii=use_ascii,
+                                  max_width=max_width)
     elif text.startswith("treemap"):
         from ..parser.trees import parse_treemap
         from ..renderer.trees import render_treemap
-        canvas = render_treemap(parse_treemap(text), use_ascii=use_ascii)
+        canvas = render_treemap(parse_treemap(text), use_ascii=use_ascii,
+                                max_width=max_width)
     elif text.startswith("mindmap"):
         from ..parser.trees import parse_mindmap
         from ..renderer.trees import render_mindmap
@@ -198,13 +201,15 @@ def plan(
             parse_packet(text),
             use_ascii=use_ascii,
             rounded=rounded_edges,
+            max_width=max_width,
             **packet_extra,
         )
     elif text.startswith("xychart"):
         from ..parser.charts import parse_xychart
         from ..renderer.charts import render_xychart
         canvas = render_xychart(
-            parse_xychart(text), use_ascii=use_ascii, rounded=rounded_edges
+            parse_xychart(text), use_ascii=use_ascii, rounded=rounded_edges,
+            max_width=max_width,
         )
     elif text.startswith("journey"):
         from ..parser.boards import parse_journey
@@ -228,7 +233,8 @@ def plan(
     elif text.startswith("quadrantChart"):
         from ..parser.charts import parse_quadrant
         from ..renderer.charts import render_quadrant
-        canvas = render_quadrant(parse_quadrant(text), use_ascii=use_ascii)
+        canvas = render_quadrant(parse_quadrant(text), use_ascii=use_ascii,
+                                 max_width=max_width)
     else:
         graph = parse(text)
         style_graph = graph

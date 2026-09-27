@@ -507,7 +507,9 @@ Horizontal graph fitting preserves complete node identifiers, reclaims oversized
 gaps, and reserves clearance in busy corridors. Spare width goes to short branch labels
 before they need numbered references. If the readable layout cannot fit, `wrap` reports
 the overflow and `--strict-width` rejects it. See the
-[integrated Mooncake measurements](docs/rendering.md#bounded-width-fitting).
+[integrated Mooncake measurements](docs/architecture.md#bounded-width-fitting).
+Gantt, packet, pie, quadrant, XY, and treemap diagrams also scale their axes,
+bars, bit columns, or surplus box width to a requested `--width` when possible.
 With `--width`, labels use the available width before wrapping, extending beyond the node
 layout when needed. Without a width budget, they prefer existing diagram space. Return labels
 prefer the outer margin. They never overwrite connectors or nodes. A label that still cannot fit uses a
@@ -543,7 +545,7 @@ reserved and checked before the plan is finalized. Rendering these diagrams keep
 caller's original model unchanged, including across repeated renders at different widths.
 Flowcharts accept both `subgraph Storage[Storage resources]` and its spaced form.
 Node, edge, and group labels recognize `<br>`, `<br/>`, and `<br />` line breaks.
-See [rendering architecture](docs/rendering.md) for layout contracts and validation.
+See [rendering architecture](docs/architecture.md#rendering-architecture) for layout contracts and validation.
 
 Width-fitted labels prefer whole words, then punctuation, identifier separators, and
 camel-case boundaries. For example, `metadata_shard[s].mutex` wraps before `.mutex`
@@ -581,7 +583,7 @@ wrap_display_text("Read complete words here", 14)
 | `--sharp-edges` | Sharp corners on edge turns instead of rounded |
 | `-o FILE` | Write output to file instead of stdout |
 | `--format styled-json` | Emit versioned semantic text chunks for editor and UI integrations |
-| `--diagnostics-format json` | Emit versioned errors and warnings on stderr for [editor integrations](docs/integrations.md) |
+| `--diagnostics-format json` | Emit versioned errors and warnings on stderr for [editor integrations](docs/architecture.md#editor-and-subprocess-integrations) |
 | `--show-ids` | Show node IDs alongside labels for debugging (e.g. `myId: My Label`) |
 | `--json TYPE` | Pipe JSON/tabular data and render as `treemap`, `pie`, `mindmap`, `flowchart`, or `xychart` |
 | `--tui` | Interactive TUI viewer (requires `pip install termaid[tui]`) |

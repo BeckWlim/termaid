@@ -316,6 +316,7 @@ def render_treemap(
     diagram: Treemap,
     *,
     use_ascii: bool = False,
+    max_width: int | None = None,
 ) -> LayoutScene:
     """Render a Treemap model to a LayoutScene."""
     cs = ASCII if use_ascii else UNICODE
@@ -333,6 +334,8 @@ def render_treemap(
     # Scale width: proportional for small diagrams, tight for large ones
     # Cap at 120 unless the minimum requires more
     canvas_w = max(min_w, min(120, max(60, int(min_w * 1.6))))
+    if max_width is not None:
+        canvas_w = max(min_w, min(canvas_w, max_width))
 
     canvas = LayoutScene(canvas_w, canvas_h)
     _layout_nodes(canvas, cs, diagram.roots, 0, 0, canvas_w, canvas_h, depth=0)

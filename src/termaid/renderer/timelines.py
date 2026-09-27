@@ -88,9 +88,7 @@ def render_gantt(
 
     # Layout: labels start at column 3 and need a blank column before the axis
     margin_l = max_label_width + 4
-    chart_w = width - margin_l - 1
-    if chart_w < 10:
-        chart_w = 10
+    chart_w = max(10, width - margin_l - 1)
 
     # Compute rows
     title_rows = 2 if diagram.title else 0
@@ -104,7 +102,7 @@ def render_gantt(
     total_h = title_rows + task_rows + axis_rows + 1
     total_w = margin_l + chart_w + 1
 
-    canvas = LayoutScene(total_w + 1, total_h + 1)
+    canvas = LayoutScene(max(total_w + 1, display_width(diagram.title)), total_h + 1)
 
     # Title
     if diagram.title:
@@ -198,9 +196,7 @@ def render_gantt(
                     canvas.put(r, col, today_vt, merge=False, style="arrow")
 
     # Date labels on x-axis
-    n_ticks = min(6, total_days)
-    if n_ticks < 2:
-        n_ticks = 2
+    n_ticks = max(1, min(6, total_days, chart_w // 8))
     for i in range(n_ticks + 1):
         d = min_date + timedelta(days=int(i / n_ticks * total_days))
         label = d.strftime("%b %d")
@@ -208,7 +204,8 @@ def render_gantt(
         # Tick mark
         canvas.put(axis_row, col, "+" if use_ascii else "┬", merge=False, style="edge")
         # Date label
-        label_x = col - display_width(label) // 2
+        label_x = max(0, min(total_w - display_width(label),
+                             col - display_width(label) // 2))
         canvas.put_text(axis_row + 1, max(0, label_x), label, style="edge_label")
 
     return canvas

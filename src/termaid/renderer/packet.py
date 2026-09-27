@@ -8,7 +8,7 @@ its own top/bottom borders.
 from __future__ import annotations
 
 from ..model.packet import Packet
-from ..utils import display_width, truncate_to_width
+from ..utils import display_width, truncate_to_width, wrap_display_text
 from ..layout.scene import LayoutScene
 
 
@@ -21,13 +21,19 @@ def render_packet(
     use_ascii: bool = False,
     rounded: bool = True,
     padding_y: int = 1,
+    max_width: int | None = None,
 ) -> LayoutScene:
     """Render a Packet model to a LayoutScene."""
     if not diagram.fields:
         return LayoutScene(1, 1)
 
     row_bits = diagram.row_bits
-    cols_per_row = row_bits * _BITS_PER_COL
+    if max_width is not None:
+        while row_bits > max(1, max_width - 2):
+            row_bits = max(1, row_bits // 2)
+    bits_per_col = (_BITS_PER_COL if max_width is None else
+                    max(1, min(_BITS_PER_COL, (max_width - 2) // row_bits)))
+    cols_per_row = row_bits * bits_per_col
 
     hz = "-" if use_ascii else "─"
     vt = "|" if use_ascii else "│"
@@ -62,10 +68,6 @@ def render_packet(
             remaining_label = ""
             bit += bits_in_this_row
 
-    # Remove trailing rows that have no labels
-    while rows and all(not label for _, _, label in rows[-1]):
-        rows.pop()
-
     # Each row: 1 (numbers) + 1 (top border) + padding_y (content) + 1 (bottom border)
     row_h = 3 + padding_y
     total_h = len(rows) * row_h
@@ -92,7 +94,7 @@ def render_packet(
             last_ce = row_fields[-1][1]
             end_bit = row_start_bit + last_ce
             end_label = str(end_bit)
-            ex = margin + (last_ce + 1) * _BITS_PER_COL - display_width(end_label)
+            ex = margin + (last_ce + 1) * bits_per_col - display_width(end_label)
             canvas.put_text(y_nums, ex, end_label, style="edge_label")
             for px in range(ex, ex + display_width(end_label) + 1):
                 placed_nums.add(px)
@@ -102,23 +104,24 @@ def render_packet(
             first_cs = row_fields[0][0]
             start_bit = row_start_bit + first_cs
             start_label = str(start_bit)
-            sx = margin + first_cs * _BITS_PER_COL
-            canvas.put_text(y_nums, sx, start_label, style="edge_label")
-            for px in range(sx, sx + display_width(start_label)):
-                placed_nums.add(px)
+            sx = margin + first_cs * bits_per_col
+            if sx + display_width(start_label) < ex:
+                canvas.put_text(y_nums, sx, start_label, style="edge_label")
+                for px in range(sx, sx + display_width(start_label)):
+                    placed_nums.add(px)
 
         # Intermediate boundary numbers (only when fields are wide enough)
         for fi in range(1, len(row_fields)):
             cs, ce, _ = row_fields[fi]
             prev_cs, prev_ce, _ = row_fields[fi - 1]
-            prev_width = (prev_ce - prev_cs + 1) * _BITS_PER_COL
-            cur_width = (ce - cs + 1) * _BITS_PER_COL
+            prev_width = (prev_ce - prev_cs + 1) * bits_per_col
+            cur_width = (ce - cs + 1) * bits_per_col
 
             # Show end of previous field
             if prev_width >= min_field_cols:
                 end_bit = row_start_bit + prev_ce
                 end_label = str(end_bit)
-                ex = margin + (prev_ce + 1) * _BITS_PER_COL - display_width(end_label)
+                ex = margin + (prev_ce + 1) * bits_per_col - display_width(end_label)
                 if not any(p in placed_nums for p in range(ex, ex + display_width(end_label) + 1)):
                     canvas.put_text(y_nums, ex, end_label, style="edge_label")
                     for px in range(ex, ex + display_width(end_label) + 1):
@@ -128,7 +131,7 @@ def render_packet(
             if cur_width >= min_field_cols:
                 start_bit = row_start_bit + cs
                 start_label = str(start_bit)
-                sx = margin + cs * _BITS_PER_COL + 1
+                sx = margin + cs * bits_per_col + 1
                 if not any(p in placed_nums for p in range(sx, sx + display_width(start_label))):
                     canvas.put_text(y_nums, sx, start_label, style="edge_label")
                     for px in range(sx, sx + display_width(start_label)):
@@ -143,7 +146,7 @@ def render_packet(
         # Field separators on top border
         for cs, ce, _ in row_fields:
             if cs > 0:
-                canvas.put(y_top, margin + cs * _BITS_PER_COL, tj, merge=False, style="node")
+                canvas.put(y_top, margin + cs * bits_per_col, tj, merge=False, style="node")
 
         # --- Content rows ---
         for py in range(padding_y):
@@ -152,12 +155,12 @@ def render_packet(
             canvas.put(yr, margin + cols_per_row, vt, merge=False, style="node")
             for cs, ce, _ in row_fields:
                 if cs > 0:
-                    canvas.put(yr, margin + cs * _BITS_PER_COL, vt, merge=False, style="node")
+                    canvas.put(yr, margin + cs * bits_per_col, vt, merge=False, style="node")
 
         # Labels centered
         for cs, ce, label in row_fields:
-            x_start = margin + cs * _BITS_PER_COL
-            x_end = margin + (ce + 1) * _BITS_PER_COL
+            x_start = margin + cs * bits_per_col
+            x_end = margin + (ce + 1) * bits_per_col
             field_w = x_end - x_start
 
             if label:
@@ -175,26 +178,31 @@ def render_packet(
         # Field separators on bottom border
         for cs, ce, _ in row_fields:
             if cs > 0:
-                canvas.put(y_bottom, margin + cs * _BITS_PER_COL, bj, merge=False, style="node")
+                canvas.put(y_bottom, margin + cs * bits_per_col, bj, merge=False, style="node")
 
     # Legend for truncated labels
     truncated: list[tuple[str, str, int, int]] = []
     for field in diagram.fields:
-        avail = field.bits * _BITS_PER_COL - 2
+        first_row_bits = min(field.bits, row_bits - field.start % row_bits)
+        avail = first_row_bits * bits_per_col - 2
         if avail < display_width(field.label) and field.label:
             short = truncate_to_width(field.label, avail)
             truncated.append((short, field.label, field.start, field.end))
 
     if truncated:
         y_legend = total_h + 1
-        needed_h = y_legend + len(truncated) + 1
+        legend_lines: list[str] = []
+        for short, full, start, end in truncated:
+            bits = f"[{start}]" if start == end else f"[{start}-{end}]"
+            entry = f"{short} = {full} {bits}"
+            if max_width is None:
+                legend_lines.append(entry)
+            else:
+                legend_lines.extend(wrap_display_text(entry, max(1, max_width - margin)))
+        needed_h = y_legend + len(legend_lines) + 1
         if needed_h > canvas.height:
             canvas.resize(canvas.width, needed_h)
-        for i, (short, full, start, end) in enumerate(truncated):
-            if start == end:
-                bits = f"[{start}]"
-            else:
-                bits = f"[{start}-{end}]"
-            canvas.put_text(y_legend + i, margin, f"{short} = {full} {bits}", style="edge_label")
+        for i, line in enumerate(legend_lines):
+            canvas.put_text(y_legend + i, margin, line, style="edge_label")
 
     return canvas

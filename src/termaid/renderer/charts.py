@@ -24,6 +24,7 @@ def render_pie_chart(
     diagram: PieChart,
     *,
     use_ascii: bool = False,
+    max_width: int | None = None,
 ) -> LayoutScene:
     """Render a PieChart as a horizontal bar chart on a LayoutScene."""
 
@@ -49,7 +50,11 @@ def render_pie_chart(
     max_suffix_len = max(len(sf) for sf in suffixes)
 
     bar_left = label_col_w
-    canvas_w = bar_left + _PIECHART_BAR_WIDTH + max_suffix_len + _MARGIN
+    bar_width = _PIECHART_BAR_WIDTH
+    if max_width is not None:
+        bar_width = min(bar_width, max(1, max_width - bar_left - max_suffix_len - _MARGIN))
+    canvas_w = max(bar_left + bar_width + max_suffix_len + _MARGIN,
+                   display_width(diagram.title))
     title_rows = 2 if diagram.title else 0
 
     # Layout: title, stacked bar (3 rows), blank, per-slice bars
@@ -65,13 +70,13 @@ def render_pie_chart(
         canvas.put_text(_MARGIN, title_col, diagram.title, style="label")
 
     # Stacked bar showing parts of a whole
-    stacked_w = _PIECHART_BAR_WIDTH
+    stacked_w = bar_width
     stacked_left = bar_left + 1
     col = 0
     label_parts: list[tuple[int, int, str, str]] = []  # (start, width, label, fill)
     for i, s in enumerate(diagram.slices):
         fill = fills[i % len(fills)]
-        seg_w = max(1, round(s.value / total * stacked_w))
+        seg_w = min(stacked_w - col, max(1, round(s.value / total * stacked_w)))
         # Clamp last segment to fill exactly
         if i == len(diagram.slices) - 1:
             seg_w = stacked_w - col
@@ -103,7 +108,7 @@ def render_pie_chart(
     for i, s in enumerate(diagram.slices):
         row = bars_top + i
         fill = fills[i % len(fills)]
-        bar_len = max(1, round(s.value / total * _PIECHART_BAR_WIDTH))
+        bar_len = max(1, round(s.value / total * bar_width))
 
         # Label (right-aligned)
         label_text = s.label.rjust(max_label_len)
@@ -139,6 +144,7 @@ def render_quadrant(
     diagram: QuadrantChart,
     *,
     use_ascii: bool = False,
+    max_width: int | None = None,
 ) -> LayoutScene:
     """Render a QuadrantChart model to a LayoutScene."""
     hz = "-" if use_ascii else "─"
@@ -146,12 +152,15 @@ def render_quadrant(
     cross = "+" if use_ascii else "┼"
     marker = "*" if use_ascii else "●"
     corner = "+" if use_ascii else "└"
+    chart_w = (_QUADRANT_CHART_W if max_width is None else
+               min(_QUADRANT_CHART_W, max(8, max_width - _QUADRANT_MARGIN_L)))
+    chart_h = _QUADRANT_CHART_H
 
     lines: list[str] = []
 
     # Title
     if diagram.title:
-        pad = (_QUADRANT_MARGIN_L + _QUADRANT_CHART_W - len(diagram.title)) // 2
+        pad = (_QUADRANT_MARGIN_L + chart_w - display_width(diagram.title)) // 2
         lines.append(" " * max(0, pad) + diagram.title)
         lines.append("")
 
@@ -162,11 +171,11 @@ def render_quadrant(
     q3_label = diagram.quadrant_3  # bottom-left
     q4_label = diagram.quadrant_4  # bottom-right
 
-    half_w = _QUADRANT_CHART_W // 2
-    half_h = _QUADRANT_CHART_H // 2
+    half_w = chart_w // 2
+    half_h = chart_h // 2
 
     # Create empty grid
-    grid: list[list[str]] = [[" " for _ in range(_QUADRANT_CHART_W)] for _ in range(_QUADRANT_CHART_H)]
+    grid: list[list[str]] = [[" " for _ in range(chart_w)] for _ in range(chart_h)]
 
     # Place quadrant labels (centered in each quadrant)
     _place_label(grid, q2_label, half_w // 2, half_h // 2)     # top-left
@@ -175,34 +184,34 @@ def render_quadrant(
     _place_label(grid, q4_label, half_w + half_w // 2, half_h + half_h // 2)  # bottom-right
 
     # Draw axes (center lines)
-    for c in range(_QUADRANT_CHART_W):
+    for c in range(chart_w):
         grid[half_h][c] = hz
-    for r in range(_QUADRANT_CHART_H):
+    for r in range(chart_h):
         grid[r][half_w] = vt
     grid[half_h][half_w] = cross
 
     # Plot points
     for point in diagram.points:
-        px = int(point.x * (_QUADRANT_CHART_W - 1))
-        py = int((1 - point.y) * (_QUADRANT_CHART_H - 1))  # y is inverted (0=bottom)
-        px = max(0, min(_QUADRANT_CHART_W - 1, px))
-        py = max(0, min(_QUADRANT_CHART_H - 1, py))
+        px = int(point.x * (chart_w - 1))
+        py = int((1 - point.y) * (chart_h - 1))  # y is inverted (0=bottom)
+        px = max(0, min(chart_w - 1, px))
+        py = max(0, min(chart_h - 1, py))
         grid[py][px] = marker
         # Place label to the right of the marker (with 1 char gap)
         label = " " + point.label
         start = px + 1
-        if start + display_width(label) > _QUADRANT_CHART_W:
+        if start + display_width(label) > chart_w:
             # Doesn't fit on right, try left
             start = px - display_width(label)
         if start >= 0:
             for i, ch in enumerate(label):
-                if 0 <= start + i < _QUADRANT_CHART_W:
+                if 0 <= start + i < chart_w:
                     grid[py][start + i] = ch
 
     # Build a style grid matching the char grid
-    style_grid: list[list[str]] = [["default" for _ in range(_QUADRANT_CHART_W)] for _ in range(_QUADRANT_CHART_H)]
-    for r in range(_QUADRANT_CHART_H):
-        for c in range(_QUADRANT_CHART_W):
+    style_grid: list[list[str]] = [["default" for _ in range(chart_w)] for _ in range(chart_h)]
+    for r in range(chart_h):
+        for c in range(chart_w):
             if r < half_h and c < half_w:
                 style_grid[r][c] = "section:1"   # Q2 top-left
             elif r < half_h and c >= half_w:
@@ -212,9 +221,9 @@ def render_quadrant(
             else:
                 style_grid[r][c] = "section:3"   # Q4 bottom-right
     # Axes get edge style
-    for c in range(_QUADRANT_CHART_W):
+    for c in range(chart_w):
         style_grid[half_h][c] = "edge"
-    for r in range(_QUADRANT_CHART_H):
+    for r in range(chart_h):
         style_grid[r][half_w] = "edge"
 
     # Render grid with left margin
@@ -223,12 +232,13 @@ def render_quadrant(
     # X-axis label
     x_label_line = ""
     if diagram.x_label:
-        x_pad = _QUADRANT_MARGIN_L + (_QUADRANT_CHART_W - len(diagram.x_label)) // 2
+        x_pad = _QUADRANT_MARGIN_L + (chart_w - display_width(diagram.x_label)) // 2
         x_label_line = " " * max(0, x_pad) + diagram.x_label
 
     # Compute canvas size
-    total_h = title_lines + _QUADRANT_CHART_H + (2 if x_label_line else 0)
-    width = _QUADRANT_MARGIN_L + _QUADRANT_CHART_W + 1
+    total_h = title_lines + chart_h + (2 if x_label_line else 0)
+    width = max(_QUADRANT_MARGIN_L + chart_w,
+                display_width(diagram.title), display_width(diagram.x_label))
     canvas = LayoutScene(width, total_h)
 
     # Write title lines
@@ -238,9 +248,9 @@ def render_quadrant(
     # Write ALL grid cells (including spaces) so backgrounds fill
     # the entire quadrant region. For non-space chars, use put().
     # For spaces, write the style directly since put() skips them.
-    for r in range(_QUADRANT_CHART_H):
+    for r in range(chart_h):
         row_y = title_lines + r
-        for c in range(_QUADRANT_CHART_W):
+        for c in range(chart_w):
             col_x = _QUADRANT_MARGIN_L + c
             ch = grid[r][c]
             style = style_grid[r][c]
@@ -251,7 +261,7 @@ def render_quadrant(
 
     # Write x-axis label
     if x_label_line:
-        canvas.put_text(title_lines + _QUADRANT_CHART_H + 1, 0, x_label_line, style="edge_label")
+        canvas.put_text(title_lines + chart_h + 1, 0, x_label_line, style="edge_label")
 
     return canvas
 
@@ -288,6 +298,7 @@ def render_xychart(
     *,
     use_ascii: bool = False,
     rounded: bool = True,
+    max_width: int | None = None,
 ) -> LayoutScene:
     """Render an XYChart model to a LayoutScene."""
     if not diagram.datasets:
@@ -298,15 +309,17 @@ def render_xychart(
     # continuous axis to show trends.
     has_line = any(ds.chart_type == "line" for ds in diagram.datasets)
     if diagram.horizontal and not has_line:
-        return _render_horizontal(diagram, use_ascii=use_ascii)
-    return _render_vertical(diagram, use_ascii=use_ascii, rounded=rounded)
+        return _render_horizontal(diagram, use_ascii=use_ascii, max_width=max_width)
+    return _render_vertical(diagram, use_ascii=use_ascii, rounded=rounded,
+                            max_width=max_width)
 
 
 # ---------------------------------------------------------------------------
 # Vertical chart (default)
 # ---------------------------------------------------------------------------
 
-def _render_vertical(diagram: XYChart, use_ascii: bool = False, rounded: bool = True) -> LayoutScene:
+def _render_vertical(diagram: XYChart, use_ascii: bool = False,
+                     rounded: bool = True, max_width: int | None = None) -> LayoutScene:
     bar_char = "#" if use_ascii else _BAR_CHAR
     bar_half = "=" if use_ascii else _BAR_HALF
     marker = "*" if use_ascii else _LINE_MARKER
@@ -344,14 +357,21 @@ def _render_vertical(diagram: XYChart, use_ascii: bool = False, rounded: bool = 
 
     cat_width = max(display_width(c) for c in categories) if categories else 2
     col_width = max(_XYCHART_BAR_WIDTH, cat_width + 1)
+    bar_gap = _BAR_GAP
+    if max_width is not None and n_points:
+        available = max_width - _XYCHART_MARGIN_L - 4
+        if n_points * (col_width + bar_gap) - bar_gap > available:
+            bar_gap = 1
+            col_width = max(cat_width, min(col_width, (available - bar_gap * (n_points - 1)) // n_points))
 
-    chart_w = n_points * (col_width + _BAR_GAP) - _BAR_GAP
+    chart_w = n_points * (col_width + bar_gap) - bar_gap
     total_w = _XYCHART_MARGIN_L + 1 + chart_w + 2
 
     title_lines = 2 if diagram.title else 0
     total_h = _XYCHART_CHART_H + 4
 
-    canvas = LayoutScene(total_w + 1, total_h + title_lines + 1)
+    canvas = LayoutScene(max(total_w + 1, display_width(diagram.title),
+                             display_width(diagram.x_label)), total_h + title_lines + 1)
     row_offset = title_lines
 
     # Title
@@ -384,7 +404,7 @@ def _render_vertical(diagram: XYChart, use_ascii: bool = False, rounded: bool = 
         for i, val in enumerate(ds.values):
             if i >= n_points:
                 break
-            col_x = _XYCHART_MARGIN_L + 1 + i * (col_width + _BAR_GAP)
+            col_x = _XYCHART_MARGIN_L + 1 + i * (col_width + bar_gap)
             bar_h = int((val - min_val) / val_range * _XYCHART_CHART_H)
 
             if ds.chart_type == "bar":
@@ -410,12 +430,12 @@ def _render_vertical(diagram: XYChart, use_ascii: bool = False, rounded: bool = 
                     prev_val = ds.values[i - 1]
                     prev_h = int((prev_val - min_val) / val_range * _XYCHART_CHART_H)
                     prev_row = row_offset + _XYCHART_CHART_H - 1 - max(0, prev_h - 1)
-                    prev_x = _XYCHART_MARGIN_L + 1 + (i - 1) * (col_width + _BAR_GAP) + col_width // 2
+                    prev_x = _XYCHART_MARGIN_L + 1 + (i - 1) * (col_width + bar_gap) + col_width // 2
                     _draw_line_v(canvas, prev_x, prev_row, mid_x, row, use_ascii, rounded)
 
     # X-axis ticks and labels
     for i, cat in enumerate(categories):
-        col_x = _XYCHART_MARGIN_L + 1 + i * (col_width + _BAR_GAP) + col_width // 2
+        col_x = _XYCHART_MARGIN_L + 1 + i * (col_width + bar_gap) + col_width // 2
         canvas.put(axis_row, col_x, tick, merge=False, style="edge")
         label_x = col_x - display_width(cat) // 2
         canvas.put_text(axis_row + 1, max(0, label_x), cat, style="edge_label")
@@ -431,7 +451,8 @@ def _render_vertical(diagram: XYChart, use_ascii: bool = False, rounded: bool = 
 # Horizontal chart
 # ---------------------------------------------------------------------------
 
-def _render_horizontal(diagram: XYChart, use_ascii: bool = False) -> LayoutScene:
+def _render_horizontal(diagram: XYChart, use_ascii: bool = False,
+                       max_width: int | None = None) -> LayoutScene:
     bar_char = "#" if use_ascii else _BAR_CHAR
     bar_half = "|" if use_ascii else _BAR_HALF_H
     marker = "*" if use_ascii else _LINE_MARKER
@@ -472,13 +493,15 @@ def _render_horizontal(diagram: XYChart, use_ascii: bool = False) -> LayoutScene
     bar_height = 1  # each bar is 1 row tall
     row_gap = 1     # gap between rows
     chart_h = n_points * (bar_height + row_gap) - row_gap
-    chart_w = _XYCHART_CHART_W
+    chart_w = (_XYCHART_CHART_W if max_width is None else
+               min(_XYCHART_CHART_W, max(8, max_width - margin_l - 4)))
 
     title_lines = 2 if diagram.title else 0
     total_h = title_lines + chart_h + 3  # chart + axis + value labels
     total_w = margin_l + 1 + chart_w + 2
 
-    canvas = LayoutScene(total_w + 1, total_h + 1)
+    canvas = LayoutScene(max(total_w + 1, display_width(diagram.title),
+                             display_width(diagram.x_label)), total_h + 1)
     row_offset = title_lines
 
     # Title
@@ -497,13 +520,14 @@ def _render_horizontal(diagram: XYChart, use_ascii: bool = False) -> LayoutScene
         canvas.put(axis_row, c, hz, merge=False, style="edge")
 
     # X-axis value labels (bottom)
-    n_ticks = 5
+    n_ticks = max(1, min(5, chart_w // 8))
     for i in range(n_ticks + 1):
         val = min_val + val_range * i / n_ticks
         label = _format_val(val)
         col = margin_l + 1 + int(i / n_ticks * (chart_w - 1))
         canvas.put(axis_row, col, bottom_tick, merge=False, style="edge")
-        label_x = col - display_width(label) // 2
+        label_x = max(0, min(total_w - display_width(label),
+                             col - display_width(label) // 2))
         canvas.put_text(axis_row + 1, max(0, label_x), label, style="edge_label")
 
     if diagram.x_label:
