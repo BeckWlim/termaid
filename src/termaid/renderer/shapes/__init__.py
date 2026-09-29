@@ -7,10 +7,10 @@ from __future__ import annotations
 
 from typing import Protocol
 
-from ...layout.scene import LayoutScene
-from ...utils import display_width
-from ..charset import CharSet
-from ...graph.shapes import NodeShape
+from termaid.core.canvas import Canvas
+from termaid.utils import display_width
+from termaid.renderer.charset import CharSet
+from termaid.core.graph import NodeShape
 
 
 class ShapeRenderer(Protocol):
@@ -18,7 +18,7 @@ class ShapeRenderer(Protocol):
 
     def draw(
         self,
-        canvas: LayoutScene,
+        canvas: Canvas,
         x: int,
         y: int,
         width: int,
@@ -31,7 +31,7 @@ class ShapeRenderer(Protocol):
 
 
 def draw_rectangle(
-    canvas: LayoutScene, x: int, y: int, width: int, height: int,
+    canvas: Canvas, x: int, y: int, width: int, height: int,
     label: str, cs: CharSet, style: str = "",
 ) -> None:
     """Draw a rectangular box with label centered."""
@@ -57,7 +57,7 @@ def draw_rectangle(
 
 
 def draw_rounded(
-    canvas: LayoutScene, x: int, y: int, width: int, height: int,
+    canvas: Canvas, x: int, y: int, width: int, height: int,
     label: str, cs: CharSet, style: str = "",
 ) -> None:
     """Draw a rounded box."""
@@ -79,7 +79,7 @@ def draw_rounded(
 
 
 def draw_stadium(
-    canvas: LayoutScene, x: int, y: int, width: int, height: int,
+    canvas: Canvas, x: int, y: int, width: int, height: int,
     label: str, cs: CharSet, style: str = "",
 ) -> None:
     """Draw a stadium (pill) shape."""
@@ -104,7 +104,7 @@ def draw_stadium(
 
 
 def draw_subroutine(
-    canvas: LayoutScene, x: int, y: int, width: int, height: int,
+    canvas: Canvas, x: int, y: int, width: int, height: int,
     label: str, cs: CharSet, style: str = "",
 ) -> None:
     """Draw a subroutine (double-bordered) box."""
@@ -117,7 +117,7 @@ def draw_subroutine(
 
 
 def draw_diamond(
-    canvas: LayoutScene, x: int, y: int, width: int, height: int,
+    canvas: Canvas, x: int, y: int, width: int, height: int,
     label: str, cs: CharSet, style: str = "",
 ) -> None:
     """Draw a diamond (decision) with ◆ markers at top/bottom center.
@@ -155,7 +155,7 @@ def draw_diamond(
 
 
 def draw_hexagon(
-    canvas: LayoutScene, x: int, y: int, width: int, height: int,
+    canvas: Canvas, x: int, y: int, width: int, height: int,
     label: str, cs: CharSet, style: str = "",
 ) -> None:
     """Draw a hexagon shape."""
@@ -181,7 +181,7 @@ def draw_hexagon(
 
 
 def draw_circle(
-    canvas: LayoutScene, x: int, y: int, width: int, height: int,
+    canvas: Canvas, x: int, y: int, width: int, height: int,
     label: str, cs: CharSet, style: str = "",
 ) -> None:
     """Draw a circle with ◯ markers at top/bottom center.
@@ -205,7 +205,7 @@ def draw_circle(
 
 
 def draw_double_circle(
-    canvas: LayoutScene, x: int, y: int, width: int, height: int,
+    canvas: Canvas, x: int, y: int, width: int, height: int,
     label: str, cs: CharSet, style: str = "",
 ) -> None:
     """Draw a double circle shape."""
@@ -224,7 +224,7 @@ def draw_double_circle(
 
 
 def draw_asymmetric(
-    canvas: LayoutScene, x: int, y: int, width: int, height: int,
+    canvas: Canvas, x: int, y: int, width: int, height: int,
     label: str, cs: CharSet, style: str = "",
 ) -> None:
     """Draw an asymmetric (flag) shape: >text]."""
@@ -253,7 +253,7 @@ def draw_asymmetric(
 
 
 def draw_cylinder(
-    canvas: LayoutScene, x: int, y: int, width: int, height: int,
+    canvas: Canvas, x: int, y: int, width: int, height: int,
     label: str, cs: CharSet, style: str = "",
 ) -> None:
     """Draw a cylinder (database) shape."""
@@ -284,7 +284,7 @@ def draw_cylinder(
 
 
 def draw_trapezoid(
-    canvas: LayoutScene, x: int, y: int, width: int, height: int,
+    canvas: Canvas, x: int, y: int, width: int, height: int,
     label: str, cs: CharSet, style: str = "",
 ) -> None:
     """Draw a trapezoid: /text\\ — top corners slant inward."""
@@ -309,7 +309,7 @@ def draw_trapezoid(
 
 
 def draw_trapezoid_alt(
-    canvas: LayoutScene, x: int, y: int, width: int, height: int,
+    canvas: Canvas, x: int, y: int, width: int, height: int,
     label: str, cs: CharSet, style: str = "",
 ) -> None:
     """Draw inverted trapezoid: \\text/ — bottom corners slant inward."""
@@ -334,7 +334,7 @@ def draw_trapezoid_alt(
 
 
 def draw_parallelogram(
-    canvas: LayoutScene, x: int, y: int, width: int, height: int,
+    canvas: Canvas, x: int, y: int, width: int, height: int,
     label: str, cs: CharSet, style: str = "",
 ) -> None:
     """Draw parallelogram leaning right: /text/ — all corners use /."""
@@ -359,7 +359,7 @@ def draw_parallelogram(
 
 
 def draw_parallelogram_alt(
-    canvas: LayoutScene, x: int, y: int, width: int, height: int,
+    canvas: Canvas, x: int, y: int, width: int, height: int,
     label: str, cs: CharSet, style: str = "",
 ) -> None:
     """Draw parallelogram leaning left: \\text\\ — all corners use \\."""
@@ -384,7 +384,7 @@ def draw_parallelogram_alt(
 
 
 def _draw_label(
-    canvas: LayoutScene, x: int, y: int, width: int, height: int, label: str,
+    canvas: Canvas, x: int, y: int, width: int, height: int, label: str,
     style: str = "",
 ) -> None:
     """Draw centered label text inside a shape."""
@@ -405,7 +405,7 @@ def _draw_label(
 
 
 def draw_start_state(
-    canvas: LayoutScene, x: int, y: int, width: int, height: int,
+    canvas: Canvas, x: int, y: int, width: int, height: int,
     label: str, cs: CharSet, style: str = "",
 ) -> None:
     """Draw a start state: filled circle (●)."""
@@ -415,7 +415,7 @@ def draw_start_state(
 
 
 def draw_end_state(
-    canvas: LayoutScene, x: int, y: int, width: int, height: int,
+    canvas: Canvas, x: int, y: int, width: int, height: int,
     label: str, cs: CharSet, style: str = "",
 ) -> None:
     """Draw an end state: bullseye (◉)."""
@@ -425,7 +425,7 @@ def draw_end_state(
 
 
 def draw_fork_join(
-    canvas: LayoutScene, x: int, y: int, width: int, height: int,
+    canvas: Canvas, x: int, y: int, width: int, height: int,
     label: str, cs: CharSet, style: str = "",
 ) -> None:
     """Draw a fork/join bar: solid thick block."""

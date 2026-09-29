@@ -8,10 +8,10 @@ import pytest
 
 from termaid import parse
 from termaid.cli import main
-from termaid.graph.model import Edge
+from termaid.core.graph import Edge
 from termaid.layout.grid import compute_layout
-from termaid.renderer.canvas import Canvas
-from termaid.renderer.draw import _draw_wrapped_edge_label
+from termaid.core.canvas import Canvas
+from termaid.renderer.graph import _draw_wrapped_edge_label
 from termaid.routing.router import RoutedEdge
 from termaid.utils import display_width
 

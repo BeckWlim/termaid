@@ -7,9 +7,9 @@ from __future__ import annotations
 import pytest
 
 from termaid import parse, render
-from termaid.parser.statediagram import parse_state_diagram
-from termaid.graph.model import Direction, EdgeStyle
-from termaid.graph.shapes import NodeShape
+from termaid.diagrams.state import parse_state_diagram
+from termaid.core.graph import Direction, EdgeStyle
+from termaid.core.graph import NodeShape
 
 
 # ── Parser tests ──────────────────────────────────────────────────────────────

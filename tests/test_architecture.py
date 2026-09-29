@@ -2,7 +2,7 @@
 from __future__ import annotations
 
 from termaid import render
-from termaid.parser.architecture import parse_architecture, _compute_grid_positions
+from termaid.diagrams.architecture import parse_architecture, _compute_grid_positions
 
 
 class TestArchitectureParser:

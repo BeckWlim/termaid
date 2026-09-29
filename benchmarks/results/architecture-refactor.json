@@ -1,0 +1,160 @@
+{
+  "description": "Architecture refactor comparison against the saved pre-refactor working tree, including existing uncommitted changes; timings are observations, not performance gates.",
+  "baseline_head": "86a958b",
+  "repeats": 3,
+  "rich_parity": {
+    "cases": 108,
+    "compared": [
+      "plain text",
+      "span offsets",
+      "span styles"
+    ],
+    "equal": true
+  },
+  "traced_peak_bytes": {
+    "before": {
+      "production_architecture": 1191705,
+      "production_supervisor_state": 1411556,
+      "production_lease_race": 2931517
+    },
+    "after": {
+      "production_architecture": 1176534,
+      "production_supervisor_state": 1397115,
+      "production_lease_race": 2916844
+    },
+    "method": "tracemalloc peak for one CLI render after warmup and garbage collection, width 100, strict reflow, styled JSON; not total process memory"
+  },
+  "timings": {
+    "warm": [
+      {
+        "fixture": "production_architecture",
+        "width": 68,
+        "sha256": "5ff57dc575b22f15a47ae5ec3ff2d39b2709b77c428376bfdcd28f27fa4ebe1e",
+        "before_ms": 114.45652705151588,
+        "after_ms": 96.90694801975042
+      },
+      {
+        "fixture": "production_architecture",
+        "width": 100,
+        "sha256": "cbbddced0789ea5a4f300545191eb3e3f089303727c250a164ba0bd8e655dd79",
+        "before_ms": 157.94054290745407,
+        "after_ms": 105.62422894872725
+      },
+      {
+        "fixture": "production_architecture",
+        "width": 160,
+        "sha256": "8b1c624ffd477193f24a1d8233f20e0b9c0e53aef4bb8d38c35c955d5ad6d12a",
+        "before_ms": 158.21342705748975,
+        "after_ms": 107.01749403961003
+      },
+      {
+        "fixture": "production_supervisor_state",
+        "width": 68,
+        "sha256": "6eeeb6d369af2b001066cef200cc7964d13cc94c4606488e9e37a1bfc64059fd",
+        "before_ms": 407.110258936882,
+        "after_ms": 304.3404290219769
+      },
+      {
+        "fixture": "production_supervisor_state",
+        "width": 100,
+        "sha256": "03840e1e706f2e8c223da10d2c5aecddd0eeaa6cebd163872e08248f304d8850",
+        "before_ms": 216.47304599173367,
+        "after_ms": 278.9433600846678
+      },
+      {
+        "fixture": "production_supervisor_state",
+        "width": 160,
+        "sha256": "aed24b98756b958af719e75aa8cda35ec4ffb7cb508e4ca72a331d17430aebee",
+        "before_ms": 242.2440079972148,
+        "after_ms": 279.706914909184
+      },
+      {
+        "fixture": "production_lease_race",
+        "width": 68,
+        "sha256": "bbe9000bd42fd2e1611e2058f181bf041ac0f180bd590b84365c3ca67c329c6c",
+        "before_ms": 188.3114310912788,
+        "after_ms": 155.84014100022614
+      },
+      {
+        "fixture": "production_lease_race",
+        "width": 100,
+        "sha256": "7914290b0e6dae7ccfb9ee55750785fd86e1daa754bfa55e8798970ad6820bdc",
+        "before_ms": 126.95852993056178,
+        "after_ms": 109.09538296982646
+      },
+      {
+        "fixture": "production_lease_race",
+        "width": 160,
+        "sha256": "26bddfaafeb53d25f8a2d7cddb996558a24836fbbe9504bf28030e22dcea194f",
+        "before_ms": 27.308494085446,
+        "after_ms": 24.059456074610353
+      }
+    ],
+    "cold": [
+      {
+        "fixture": "production_architecture",
+        "width": 68,
+        "sha256": "5ff57dc575b22f15a47ae5ec3ff2d39b2709b77c428376bfdcd28f27fa4ebe1e",
+        "before_ms": 430.44900498352945,
+        "after_ms": 403.94634706899524
+      },
+      {
+        "fixture": "production_architecture",
+        "width": 100,
+        "sha256": "cbbddced0789ea5a4f300545191eb3e3f089303727c250a164ba0bd8e655dd79",
+        "before_ms": 305.75835797935724,
+        "after_ms": 425.129501032643
+      },
+      {
+        "fixture": "production_architecture",
+        "width": 160,
+        "sha256": "8b1c624ffd477193f24a1d8233f20e0b9c0e53aef4bb8d38c35c955d5ad6d12a",
+        "before_ms": 293.7979130074382,
+        "after_ms": 362.92776407208294
+      },
+      {
+        "fixture": "production_supervisor_state",
+        "width": 68,
+        "sha256": "6eeeb6d369af2b001066cef200cc7964d13cc94c4606488e9e37a1bfc64059fd",
+        "before_ms": 474.1093280026689,
+        "after_ms": 534.5753419678658
+      },
+      {
+        "fixture": "production_supervisor_state",
+        "width": 100,
+        "sha256": "03840e1e706f2e8c223da10d2c5aecddd0eeaa6cebd163872e08248f304d8850",
+        "before_ms": 376.3385019265115,
+        "after_ms": 464.40267900470644
+      },
+      {
+        "fixture": "production_supervisor_state",
+        "width": 160,
+        "sha256": "aed24b98756b958af719e75aa8cda35ec4ffb7cb508e4ca72a331d17430aebee",
+        "before_ms": 421.2821809342131,
+        "after_ms": 435.32809300813824
+      },
+      {
+        "fixture": "production_lease_race",
+        "width": 68,
+        "sha256": "bbe9000bd42fd2e1611e2058f181bf041ac0f180bd590b84365c3ca67c329c6c",
+        "before_ms": 270.2934469562024,
+        "after_ms": 312.6627099700272
+      },
+      {
+        "fixture": "production_lease_race",
+        "width": 100,
+        "sha256": "7914290b0e6dae7ccfb9ee55750785fd86e1daa754bfa55e8798970ad6820bdc",
+        "before_ms": 298.4486490022391,
+        "after_ms": 267.27360498625785
+      },
+      {
+        "fixture": "production_lease_race",
+        "width": 160,
+        "sha256": "26bddfaafeb53d25f8a2d7cddb996558a24836fbbe9504bf28030e22dcea194f",
+        "before_ms": 270.27751598507166,
+        "after_ms": 234.38839195296168
+      }
+    ]
+  },
+  "python": "3.11.4 (main, Jul 29 2026, 21:27:37) [GCC 13.3.0]"
+}

@@ -3,7 +3,7 @@ from __future__ import annotations
 
 import pytest
 
-from termaid.parser.flowchart import parse_flowchart
+from termaid.diagrams.flowchart import parse_flowchart
 from termaid.layout.grid import compute_layout
 from termaid.routing.router import route_edges, RoutedEdge
 from termaid.routing.pathfinder import find_path, simplify_path, heuristic

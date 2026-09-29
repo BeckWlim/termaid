@@ -2,7 +2,7 @@
 from __future__ import annotations
 
 from termaid import render
-from termaid.parser.packet import parse_packet
+from termaid.plugins.packet import parse_packet
 
 
 class TestPacketParser:

@@ -9,11 +9,11 @@ from dataclasses import dataclass, field
 from collections.abc import Iterator
 from enum import Enum, auto
 
-from ..graph.model import ArrowType, Direction, Edge, EdgeStyle, Graph
-from ..graph.shapes import NodeShape
-from ..layout.grid import GridLayout, NodePlacement, SubgraphBounds
-from ..utils import display_width
-from .pathfinder import find_path, simplify_path
+from termaid.core.graph import ArrowType, Direction, Edge, EdgeStyle, Graph
+from termaid.core.graph import NodeShape
+from termaid.layout.grid import GridLayout, NodePlacement, SubgraphBounds
+from termaid.utils import display_width
+from termaid.routing.pathfinder import find_path, simplify_path
 
 
 class AttachDir(Enum):
@@ -136,11 +136,20 @@ def route_edges(graph: Graph, layout: GridLayout) -> list[RoutedEdge]:
 
     routed.sort(key=lambda route: route.index)
 
+    _refine_routes(routed, graph, layout, sg_bounds, set(sibling_routes))
+    return routed
+
+
+def _refine_routes(
+    routes: list[RoutedEdge], graph: Graph, layout: GridLayout,
+    sg_bounds: dict[str, SubgraphBounds], sibling_indices: set[int],
+) -> None:
+    """Apply ordered refinements, then restore geometry for duplicate declarations."""
     # Identical declarations remain separate model edges, but can reuse
     # exactly the same geometry and endpoint marker.
     canonical_routes: list[RoutedEdge] = []
     duplicate_routes: list[tuple[RoutedEdge, RoutedEdge]] = []
-    for route in routed:
+    for route in routes:
         route_style = graph.link_styles.get(route.index, graph.link_styles.get(-1, {}))
         representative = next((candidate for candidate in canonical_routes
                                if candidate.edge == route.edge
@@ -153,11 +162,11 @@ def route_edges(graph: Graph, layout: GridLayout) -> list[RoutedEdge]:
     # Keep compatible merged arrivals on one port. Spread only arrivals
     # whose direction or appearance requires separate markers.
     for route in canonical_routes:
-        route.draw_path = _avoid_group_titles(route.draw_path, layout)
+        route.draw_path = avoid_group_titles(route.draw_path, layout)
     _spread_shared_endpoints(canonical_routes, layout, sg_bounds, graph)
     _separate_parallel_edges(canonical_routes, graph, layout)
     _straighten_doglegs(canonical_routes, graph, layout)
-    _refine_terminal_routes(canonical_routes, graph, layout, set(sibling_routes))
+    _refine_terminal_routes(canonical_routes, graph, layout, sibling_indices)
     _separate_label_approaches(canonical_routes, graph, layout)
     for duplicate, representative in duplicate_routes:
         duplicate.draw_path = list(representative.draw_path)
@@ -165,7 +174,6 @@ def route_edges(graph: Graph, layout: GridLayout) -> list[RoutedEdge]:
         duplicate.occupied_cells = set(representative.occupied_cells)
         duplicate.start_dir, duplicate.end_dir = representative.start_dir, representative.end_dir
 
-    return routed
 
 
 def _separate_label_approaches(routes: list[RoutedEdge], graph: Graph, layout: GridLayout) -> None:
@@ -463,7 +471,7 @@ def _route_sibling_branches(graph: Graph, layout: GridLayout) -> dict[int, Route
                     break
                 grid_path = simplify_path(cells)
                 draw_path = [layout.grid_to_draw_center(col, row) for col, row in grid_path]
-                title_safe_path = _avoid_group_titles(draw_path, layout)
+                title_safe_path = avoid_group_titles(draw_path, layout)
                 if not _clear_group_corridor(edge, title_safe_path, graph, layout):
                     break
                 # Leave an arrow cell between the bus corner and the target.
@@ -484,7 +492,7 @@ def _route_sibling_branches(graph: Graph, layout: GridLayout) -> dict[int, Route
     return routes
 
 
-def _avoid_group_titles(path: list[tuple[int, int]], layout: GridLayout) -> list[tuple[int, int]]:
+def avoid_group_titles(path: list[tuple[int, int]], layout: GridLayout) -> list[tuple[int, int]]:
     """Refine routes that would be erased when group headings are painted."""
     if len(path) < 2:
         return path
@@ -674,7 +682,7 @@ def _spread_shared_endpoints(
         tgt = layout.placements.get(tgt_id)
         if not tgt and tgt_id in sg_bounds:
             sb = sg_bounds[tgt_id]
-            from ..layout.grid import GridCoord
+            from termaid.layout.grid import GridCoord
             tgt = NodePlacement(
                 node_id=tgt_id, grid=GridCoord(0, 0),
                 draw_x=sb.x, draw_y=sb.y, draw_width=sb.width, draw_height=sb.height,
@@ -819,7 +827,7 @@ def _resolve_endpoints(
         ),
     )
 
-    from ..layout.grid import GridCoord
+    from termaid.layout.grid import GridCoord
 
     def _virtualize(node_id: str, is_sg: bool, member: NodePlacement) -> NodePlacement:
         if not is_sg:

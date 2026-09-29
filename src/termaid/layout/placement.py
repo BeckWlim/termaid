@@ -5,18 +5,10 @@ heights based on label content, and normalizing sizes within layers.
 """
 from __future__ import annotations
 
-from ..graph.model import Direction, Graph
-from ..graph.shapes import NodeShape
-from ..utils import display_width, wrap_display_text
-from .grid import (
-    STRIDE,
-    MAX_LABEL_WIDTH,
-    MAX_NORMALIZED_WIDTH,
-    MAX_NORMALIZED_HEIGHT,
-    GridCoord,
-    GridLayout,
-    NodePlacement,
-)
+from termaid.core.graph import Direction, Graph
+from termaid.core.graph import NodeShape
+from termaid.utils import display_width, wrap_display_text
+from termaid.layout.grid import STRIDE, MAX_LABEL_WIDTH, MAX_NORMALIZED_WIDTH, MAX_NORMALIZED_HEIGHT, GridCoord, GridLayout, NodePlacement
 
 
 def _aligned_singleton_positions(graph: Graph, layer_order: list[list[str]]) -> dict[str, int]:

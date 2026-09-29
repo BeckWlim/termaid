@@ -2,7 +2,7 @@
 from __future__ import annotations
 
 from termaid import render
-from termaid.parser.gitgraph import parse_git_graph
+from termaid.plugins.gitgraph import parse_git_graph
 
 
 # ── Parser tests ──────────────────────────────────────────────────────────────

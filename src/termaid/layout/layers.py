@@ -7,7 +7,7 @@ from __future__ import annotations
 
 from collections import deque
 
-from ..graph.model import ArrowType, Edge, EdgeStyle, Graph, Subgraph
+from termaid.core.graph import ArrowType, Edge, EdgeStyle, Graph, Subgraph
 
 
 def expand_subgraph_edges(graph: Graph) -> list[Edge]:

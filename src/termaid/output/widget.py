@@ -36,7 +36,7 @@ def _get_widget_class():
         def render(self) -> str:
             if not self.source:
                 return ""
-            from .. import render as _render
+            from termaid import render as _render
             return _render(self.source, use_ascii=self._use_ascii)
 
     return MermaidWidget

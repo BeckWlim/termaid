@@ -5,12 +5,12 @@ import pytest
 
 from termaid import render
 from termaid.cli import main
-from termaid.graph.model import ArrowType, Edge, EdgeStyle
+from termaid.core.graph import ArrowType, Edge, EdgeStyle
 from termaid.layout.grid import GridLayout, compute_layout
-from termaid.parser.flowchart import parse_flowchart
-from termaid.renderer.canvas import Canvas
+from termaid.diagrams.flowchart import parse_flowchart
+from termaid.core.canvas import Canvas
 from termaid.renderer.charset import ASCII, UNICODE
-from termaid.renderer.draw import _draw_crossings, _draw_edges
+from termaid.renderer.graph import _draw_crossings, _draw_edges
 from termaid.routing.router import RoutedEdge, _route_sibling_branches, path_cells, route_edges
 from termaid.utils import display_width
 
@@ -188,7 +188,7 @@ def test_architecture_reviewed_snapshot(use_ascii):
 @pytest.mark.parametrize('use_ascii', [False, True])
 def test_border_heads_occupy_the_actual_target_border(direction, use_ascii):
     from termaid.layout.graph_plan import plan_graph
-    from termaid.renderer.draw import render_graph_canvas
+    from termaid.renderer.graph import render_graph_canvas
     graph = parse_flowchart(f'flowchart {direction}\nA[Source] --> B[Target]')
     geometry = plan_graph(graph, gap=4)
     scene = render_graph_canvas(graph, gap=4, use_ascii=use_ascii, arrow_position='border')
@@ -239,7 +239,7 @@ def test_markdown_breaks_keep_styles_and_unmatched_asterisks():
 @pytest.mark.parametrize('use_ascii', [False, True])
 def test_default_heads_touch_both_block_borders(direction, use_ascii):
     from termaid.layout.graph_plan import plan_graph
-    from termaid.renderer.draw import render_graph_canvas
+    from termaid.renderer.graph import render_graph_canvas
     graph = parse_flowchart(f'flowchart {direction}\nA[Source] <--> B[Target]')
     geometry = plan_graph(graph, gap=4)
     scene = render_graph_canvas(graph, gap=4, use_ascii=use_ascii)
@@ -266,7 +266,7 @@ def test_unicode_arrowheads_are_one_triangle_family():
 
 
 def test_endpoint_fallback_preserves_adjacent_corner():
-    from termaid.renderer.draw import _draw_endpoint_marker
+    from termaid.renderer.graph import _draw_endpoint_marker
     route = RoutedEdge(Edge('A', 'B'), draw_path=[(0, 2), (4, 2), (4, 3)])
     scene = Canvas(7, 5)
     scene.draw_horizontal(2, 0, 3, '─')
@@ -299,7 +299,7 @@ def test_identical_edges_reuse_head_without_removing_model_edges(direction, labe
 @pytest.mark.parametrize('direction', ['TB', 'BT', 'LR', 'RL'])
 def test_shared_destination_keeps_visible_arrivals(direction):
     from termaid.layout.graph_plan import plan_graph
-    from termaid.renderer.draw import render_graph_canvas
+    from termaid.renderer.graph import render_graph_canvas
     from termaid.routing.router import AttachDir
     source = f'flowchart {direction}\nA --> C\nB --> C'
     graph = parse_flowchart(source)

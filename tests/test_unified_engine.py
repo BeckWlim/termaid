@@ -1,12 +1,15 @@
 """All diagram families resolve once, then share output-independent plans."""
-from dataclasses import FrozenInstanceError
+from dataclasses import FrozenInstanceError, asdict
 
 import pytest
 
 from termaid import plan, render, render_rich
-from termaid.layout.engine import DiagramPlan
-from termaid.layout.scene import LayoutScene
+from termaid.source import parse_source
+from termaid.core.canvas import DiagramPlan
+from termaid.core.canvas import Canvas
 from termaid.output.styled import render_styled
+from termaid.core.contracts import RenderConfig
+from termaid.registry import DEFAULT_REGISTRY
 from termaid.utils import display_width
 
 SOURCES = {
@@ -55,7 +58,7 @@ def test_all_families_share_geometry_across_adapters(source, use_ascii, custom_o
 
 
 def test_frozen_plan_is_detached_and_serializes_without_layout(monkeypatch):
-    scene = LayoutScene(8, 2)
+    scene = Canvas(8, 2)
     scene.put_text(0, 0, '内存', style='label')
     diagram_plan = DiagramPlan.from_scene(scene, max_width=3)
     scene.put_text(0, 0, 'changed')
@@ -67,7 +70,7 @@ def test_frozen_plan_is_detached_and_serializes_without_layout(monkeypatch):
     def fail(*args, **kwargs):
         raise AssertionError('serializing a plan must not run layout')
 
-    monkeypatch.setattr('termaid.layout.engine.plan', fail)
+    monkeypatch.setattr('termaid.pipeline.plan', fail)
     assert diagram_plan.to_rich().plain == '内存'
     assert plain_styled(diagram_plan.to_styled()) == '内存'
 
@@ -78,6 +81,80 @@ def test_plan_retains_custom_graph_styles():
     assert rules['nodestyle:A']['fill'] == '#123456'
     assert rules['linkstyle:0']['stroke'] == '#abcdef'
     assert any('#abcdef' in str(span.style) for span in diagram_plan.to_rich().spans)
+
+
+@pytest.mark.parametrize('family, source', SOURCES.items(), ids=SOURCES)
+def test_dispatch_normalizes_source_before_selecting_family(family, source):
+    decorated_source = f' \n---\ntitle: Dispatch example\n---\n{source}\n '
+    expected_plan = plan(source)
+    actual_plan = plan(decorated_source)
+    assert actual_plan == expected_plan
+    assert actual_plan.graph_based == (family in {'flowchart', 'state', 'architecture'})
+
+
+@pytest.mark.parametrize('source', SOURCES.values(), ids=SOURCES)
+def test_dispatch_accepts_preclassified_source_and_leading_preamble(source):
+    decorated_source = f'%% leading comment\n%%{{init: {{}}}}%%\n\n{source}'
+    expected_plan = plan(source)
+    assert plan(decorated_source) == expected_plan
+    assert plan(parse_source(decorated_source)) == expected_plan
+
+
+def test_dispatch_preserves_git_init_directive_after_frontmatter():
+    source = ('---\ntitle: Git history\n---\n'
+              '%%{init: {"gitGraph": {"mainBranchName": "trunk"}}}%%\n'
+              'gitGraph\ncommit id: "first"')
+    diagram_plan = plan(source)
+    assert not diagram_plan.graph_based
+    assert 'trunk' in diagram_plan.to_string()
+    assert 'first' in diagram_plan.to_string()
+
+
+@pytest.mark.parametrize('header', ['graph LR', 'flowchart LR', 'stateDiagram-v2'])
+def test_dispatch_graph_fallback_keeps_reflow(header):
+    source = f'{header}\nA --> B'
+    expected_source = 'stateDiagram-v2\nA --> B' if header.startswith('stateDiagram') else 'flowchart TB\nA --> B'
+    assert plan(source, force_vertical=True) == plan(expected_source)
+
+
+@pytest.mark.parametrize('family', SOURCES)
+@pytest.mark.parametrize('config', [
+    RenderConfig(),
+    RenderConfig(
+        use_ascii=True, padding_x=2, padding_y=0, gap=7, rounded_edges=False,
+        max_label_width=10, max_width=60, uniform_nodes=True,
+        arrow_position='middle', inline_edge_labels=True, force_vertical=True,
+    ),
+], ids=['defaults', 'custom'])
+def test_family_renderer_matches_public_plan(family, config):
+    source = SOURCES[family]
+    parsed_source = parse_source(source)
+    renderer = DEFAULT_REGISTRY.resolve(parsed_source.diagram_id)
+    result = renderer(parsed_source, config)
+    direct_plan = DiagramPlan.from_scene(result.scene, graph=result.graph, max_width=config.max_width)
+    assert direct_plan == plan(source, **asdict(config))
+
+
+def test_renderer_reuse_does_not_retain_graph_state():
+    config = RenderConfig(max_width=60, force_vertical=True)
+    renderer = DEFAULT_REGISTRY.resolve("flowchart")
+    source = 'flowchart LR\nA --> B\nstyle A fill:#123456'
+    first_result = renderer(parse_source(source), config)
+    renderer(parse_source('flowchart RL\nOther --> Diagram'), config)
+    repeated_result = renderer(parse_source(source), config)
+    assert repeated_result.scene is not first_result.scene
+    assert repeated_result.graph is not first_result.graph
+    assert DiagramPlan.from_scene(repeated_result.scene, graph=repeated_result.graph) == (
+        DiagramPlan.from_scene(first_result.scene, graph=first_result.graph)
+    )
+    assert config == RenderConfig(max_width=60, force_vertical=True)
+
+
+@pytest.mark.parametrize('field', ['max_width', 'max_label_width'])
+@pytest.mark.parametrize('value', [0, -1])
+def test_render_config_rejects_invalid_widths(field, value):
+    with pytest.raises(ValueError, match=f'{field} must be positive'):
+        RenderConfig(**{field: value})
 
 
 @pytest.mark.parametrize('direction', ['RL', 'BT'])

@@ -2,7 +2,7 @@
 from __future__ import annotations
 
 from termaid import render
-from termaid.parser.blockdiagram import parse_block_diagram
+from termaid.plugins.blockdiagram import parse_block_diagram
 
 
 # ── Parser tests ──────────────────────────────────────────────────────────────

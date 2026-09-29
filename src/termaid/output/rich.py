@@ -3,11 +3,8 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
-from ..graph.model import Graph
-from ..renderer.canvas import Canvas
-from ..layout.engine import DiagramPlan
-from ..renderer.draw import render_graph_canvas
-from ..renderer.themes import get_theme
+from termaid.core.canvas import DiagramPlan
+from termaid.renderer.themes import Theme, get_theme
 
 if TYPE_CHECKING:
     from rich.text import Text
@@ -53,219 +50,73 @@ def _css_to_rich_style(props: dict[str, str]) -> str | None:
     return " ".join(parts) if parts else None
 
 
-def render_rich(
-    graph: Graph,
-    use_ascii: bool = False,
-    padding_x: int = 4,
-    padding_y: int = 2,
-    rounded_edges: bool = True,
-    theme: str = "default",
-    gap: int = 4,
-    inline_edge_labels: bool = False,
-    max_label_width: int | None = None,
-    uniform_nodes: bool = False,
-    arrow_position: str = "end",
-    max_width: int | None = None,
-) -> Text:
-    """Render a graph as a Rich Text object with colors.
-
-    Requires the 'rich' package to be installed.
-    """
-    try:
-        from rich.text import Text
-    except ImportError:
-        raise ImportError(
-            "The 'rich' package is required for colored output. "
-            "Install it with: pip install termaid[rich]"
-        )
-
-    canvas = render_graph_canvas(
-        graph,
-        use_ascii=use_ascii,
-        padding_x=padding_x,
-        padding_y=padding_y,
-        rounded_edges=rounded_edges,
-        gap=gap,
-        inline_edge_labels=inline_edge_labels,
-        max_label_width=max_label_width,
-        uniform_nodes=uniform_nodes,
-        max_width=max_width,
-        arrow_position=arrow_position,
-    )
-    if canvas is None:
-        return Text("")
-
-    return render_plan_rich(DiagramPlan.from_scene(canvas, graph=graph), theme=theme)
+def _style_map(diagram: DiagramPlan, theme: Theme) -> dict[str, str]:
+    styles = {
+        "node": theme.node, "edge": theme.edge, "arrow": theme.arrow,
+        "label": theme.label, "edge_label": theme.edge_label, "default": theme.default,
+    }
+    if diagram.graph_based:
+        styles.update({
+            "subgraph": theme.subgraph, "subgraph_label": theme.subgraph_label,
+            "bold_label": f"bold {theme.label}", "italic_label": f"italic {theme.label}",
+        })
+        for rule in diagram.styles:
+            rich_style = _css_to_rich_style(dict(rule.properties))
+            if rich_style:
+                styles[rule.key] = rich_style
+    else:
+        for index, base_hex in enumerate(theme.section_colors):
+            styles[f"section:{index}"] = f"bold white on {base_hex}"
+            red, green, blue = (int(base_hex[offset:offset + 2], 16) for offset in (1, 3, 5))
+            light_hex = f"#{min(255, red + 30):02X}{min(255, green + 30):02X}{min(255, blue + 30):02X}"
+            styles[f"section:{index}:deep"] = f"bold white on {light_hex}"
+            bright_hex = f"#{min(255, red * 3):02X}{min(255, green * 3):02X}{min(255, blue * 3):02X}"
+            styles[f"sectionfg:{index}"] = f"bold {bright_hex}"
+    return styles
 
 
-def render_plan_rich(canvas: DiagramPlan, theme: str = "default") -> Text:
+def _cell_style(character: str, key: str, styles: dict[str, str],
+                theme: Theme, graph_based: bool) -> str:
+    foreground = styles.get(key, "") if character != " " else ""
+    if not theme.is_solid:
+        return styles.get(key, "") if character != " " or key.startswith("section:") else ""
+    if key.startswith("sectionfg:"):
+        return foreground
+    if not graph_based:
+        if key.startswith("section:"):
+            return styles.get(key, styles.get(key.split(":deep")[0], theme.bg_default))
+        if key not in ("node", "label"):
+            return foreground
+        background = theme.bg_node
+    elif key in ("node", "label", "bold_label", "italic_label") or key.startswith(("nodestyle:", "class:")):
+        background = theme.bg_node
+    elif key in ("subgraph", "subgraph_label"):
+        background = theme.bg_subgraph
+    else:
+        background = theme.bg_default
+    return f"{foreground} {background}".strip() if foreground else background
+
+
+def serialize_rich(diagram: DiagramPlan, theme: str = "default") -> Text:
+    """Serialize frozen cells, preserving each family's established style policy."""
     from rich.text import Text
 
-    th = get_theme(theme)
-
-    # Map style keys to Rich style strings
-    style_map = {
-        "node": th.node,
-        "edge": th.edge,
-        "arrow": th.arrow,
-        "subgraph": th.subgraph,
-        "label": th.label,
-        "edge_label": th.edge_label,
-        "subgraph_label": th.subgraph_label,
-        "default": th.default,
-        "bold_label": f"bold {th.label}",
-        "italic_label": f"italic {th.label}",
-    }
-
-    for rule in canvas.styles:
-        rich_style = _css_to_rich_style(dict(rule.properties))
-        if rich_style:
-            style_map[rule.key] = rich_style
-
-    styled_pairs = canvas.to_styled_pairs()
-
-    # Build Rich Text from styled pairs
+    selected_theme = get_theme(theme)
+    styles = _style_map(diagram, selected_theme)
+    rows = diagram.to_styled_pairs()
     lines: list[str] = []
-    for row in styled_pairs:
-        lines.append("".join(ch for ch, _ in row).rstrip())
-
-    # Remove trailing empty lines
+    for row in rows:
+        raw_line = "".join(character for character, _ in row)
+        preserve_background = not diagram.graph_based and any(key.startswith("section:") for _, key in row)
+        lines.append(raw_line if preserve_background else raw_line.rstrip())
     while lines and not lines[-1]:
         lines.pop()
-
-    plain = "\n".join(lines)
-    text = Text(plain)
-
-    # For solid themes, apply background to all cells (including spaces)
-    is_solid = th.is_solid
-
-    # Apply styles character by character
-    pos = 0
-    for row_idx, row in enumerate(styled_pairs):
-        if row_idx >= len(lines):
-            break
-        line = lines[row_idx]
-        for col_idx, (ch, style_key) in enumerate(row):
-            if col_idx >= len(line):
-                break
-            if is_solid:
-                # Solid themes: apply bg to every cell, fg to non-space cells.
-                # sectionfg: styles are foreground-only (no bg fill).
-                if style_key.startswith("sectionfg:"):
-                    fg = style_map.get(style_key, "") if ch != " " else ""
-                    style_str = fg
-                else:
-                    bg = ""
-                    if style_key in ("node", "label", "bold_label", "italic_label") or style_key.startswith("nodestyle:") or style_key.startswith("class:"):
-                        bg = th.bg_node
-                    elif style_key in ("subgraph", "subgraph_label"):
-                        bg = th.bg_subgraph
-                    else:
-                        bg = th.bg_default
-                    fg = style_map.get(style_key, "") if ch != " " else ""
-                    style_str = f"{fg} {bg}".strip() if fg else bg
-                if style_str:
-                    text.stylize(style_str, pos + col_idx, pos + col_idx + 1)
-            else:
-                # Text themes: only style non-space characters
-                if style_key in style_map and style_map[style_key]:
-                    if ch != " " or style_key.startswith("section:"):
-                        if style_key in style_map:
-                            text.stylize(style_map[style_key], pos + col_idx, pos + col_idx + 1)
-        pos += len(line) + 1  # +1 for newline
-
-    return text
-
-
-def render_sequence_rich(
-    canvas: Canvas | DiagramPlan,
-    theme: str = "default",
-) -> Text:
-    """Render a pre-built Canvas (e.g. from a sequence diagram) as Rich Text with colors."""
-    try:
-        from rich.text import Text
-    except ImportError:
-        raise ImportError(
-            "The 'rich' package is required for colored output. "
-            "Install it with: pip install termaid[rich]"
-        )
-
-    th = get_theme(theme)
-
-    # Section background colors from the theme's palette
-    _section_colors = th.section_colors
-
-    style_map = {
-        "node": th.node,
-        "edge": th.edge,
-        "arrow": th.arrow,
-        "label": th.label,
-        "edge_label": th.edge_label,
-        "default": th.default,
-    }
-
-    # Add section styles: white text on colored backgrounds.
-    # "section:N" is the base (column bg), "section:N:deep" is lighter (card bg).
-    for i in range(len(_section_colors)):
-        base_hex = _section_colors[i % len(_section_colors)]
-        style_map[f"section:{i}"] = f"bold white on {base_hex}"
-        # Lighten by adding 30 to each RGB component for cards
-        r, g, b = int(base_hex[1:3], 16), int(base_hex[3:5], 16), int(base_hex[5:7], 16)
-        lr, lg, lb = min(255, r + 30), min(255, g + 30), min(255, b + 30)
-        light_hex = f"#{lr:02X}{lg:02X}{lb:02X}"
-        style_map[f"section:{i}:deep"] = f"bold white on {light_hex}"
-        # Foreground-only variant (for timeline): bright version of the base color
-        fr, fg_, fb = min(255, r * 3), min(255, g * 3), min(255, b * 3)
-        style_map[f"sectionfg:{i}"] = f"bold #{fr:02X}{fg_:02X}{fb:02X}"
-
-    styled_pairs = canvas.to_styled_pairs()
-
-    # Build lines, preserving trailing spaces on rows that have section
-    # backgrounds (so the colored bg fills the full width).
-    lines: list[str] = []
-    for row in styled_pairs:
-        has_section = any(s.startswith("section:") for _, s in row if s != "default")
-        raw = "".join(ch for ch, _ in row)
-        lines.append(raw if has_section else raw.rstrip())
-
-    while lines and not lines[-1]:
-        lines.pop()
-
-    plain = "\n".join(lines)
-    text = Text(plain)
-
-    is_solid = th.is_solid
-
-    pos = 0
-    for row_idx, row in enumerate(styled_pairs):
-        if row_idx >= len(lines):
-            break
-        line = lines[row_idx]
-        for col_idx, (ch, style_key) in enumerate(row):
-            if col_idx >= len(line):
-                break
-            if is_solid:
-                if style_key.startswith("sectionfg:"):
-                    # Foreground-only section (timeline)
-                    fg = style_map.get(style_key, "") if ch != " " else ""
-                    style_str = fg
-                elif style_key.startswith("section:"):
-                    # Background-filled section (kanban, quadrant)
-                    style_str = style_map.get(style_key, style_map.get(style_key.split(":deep")[0], th.bg_default))
-                elif style_key in ("node", "label"):
-                    bg = th.bg_node
-                    fg = style_map.get(style_key, "") if ch != " " else ""
-                    style_str = f"{fg} {bg}".strip() if fg else bg
-                else:
-                    # Only apply bg to non-space chars; leave spaces transparent
-                    fg = style_map.get(style_key, "") if ch != " " else ""
-                    style_str = fg
-                if style_str:
-                    text.stylize(style_str, pos + col_idx, pos + col_idx + 1)
-            else:
-                if style_key in style_map and style_map[style_key]:
-                    if ch != " " or style_key.startswith("section:"):
-                        text.stylize(style_map[style_key], pos + col_idx, pos + col_idx + 1)
-        pos += len(line) + 1
-
-    return text
+    output = Text("\n".join(lines))
+    offset = 0
+    for row, line in zip(rows, lines):
+        for column, (character, key) in enumerate(row[:len(line)]):
+            style = _cell_style(character, key, styles, selected_theme, diagram.graph_based)
+            if style:
+                output.stylize(style, offset + column, offset + column + 1)
+        offset += len(line) + 1
+    return output

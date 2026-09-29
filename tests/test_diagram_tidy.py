@@ -6,10 +6,10 @@ import re
 import pytest
 
 from termaid.cli import main
-from termaid.model.sequence import Block
+from termaid.diagrams.sequence.syntax import Block
 from termaid.output.styled import render_styled
-from termaid.parser.sequence import parse_sequence_diagram
-from termaid.renderer.sequence import render_sequence
+from termaid.diagrams.sequence.syntax import parse_sequence_diagram
+from termaid.diagrams.sequence.render import render_sequence
 from termaid.utils import display_width
 
 FIXTURES = Path(__file__).parent / 'fixtures'

@@ -4,7 +4,7 @@ from __future__ import annotations
 import pytest
 
 from termaid import render
-from termaid.parser.trees import parse_mindmap
+from termaid.plugins.trees import parse_mindmap
 
 
 class TestMindmapParser:

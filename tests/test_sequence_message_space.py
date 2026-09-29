@@ -1,9 +1,9 @@
 """Sequence annotations use available space without erasing unrelated lifelines."""
 import pytest
 
-from termaid.model.sequence import Block, Message
-from termaid.parser.sequence import parse_sequence_diagram
-from termaid.renderer.sequence import render_sequence
+from termaid.diagrams.sequence.syntax import Block, Message
+from termaid.diagrams.sequence.syntax import parse_sequence_diagram
+from termaid.diagrams.sequence.render import render_sequence
 from termaid.utils import display_width
 
 

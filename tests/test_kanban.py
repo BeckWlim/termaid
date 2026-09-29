@@ -2,7 +2,7 @@
 from __future__ import annotations
 
 from termaid import render
-from termaid.parser.boards import parse_kanban
+from termaid.plugins.boards import parse_kanban
 
 
 class TestKanbanParser:

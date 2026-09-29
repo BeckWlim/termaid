@@ -2,7 +2,7 @@
 from __future__ import annotations
 
 from termaid import render
-from termaid.parser.classdiagram import parse_class_diagram
+from termaid.diagrams.classdiagram import parse_class_diagram
 
 
 # ── Parser tests ──────────────────────────────────────────────────────────────

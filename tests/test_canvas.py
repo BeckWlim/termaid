@@ -1,7 +1,7 @@
 """Tests for the Canvas character grid."""
 from __future__ import annotations
 
-from termaid.renderer.canvas import Canvas
+from termaid.core.canvas import Canvas
 
 
 def test_styled_rows_preserve_wide_cells_and_snapshot_independence():

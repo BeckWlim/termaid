@@ -8,7 +8,7 @@ import pytest
 
 from termaid import parse
 from termaid.cli import main
-from termaid.layout.engine import plan
+from termaid.pipeline import PreparedDiagram
 from termaid.layout.graph_plan import plan_graph
 from termaid.layout.grid import GridCoord, GridLayout, NodePlacement
 from termaid.layout.placement import reserve_return_margin
@@ -46,13 +46,13 @@ def test_long_cycle_keeps_a_return_corridor():
 @pytest.mark.parametrize('width', [80, 101, 130])
 @pytest.mark.parametrize('use_ascii', [False, True])
 def test_ha_reflow_fits_without_an_unused_return_margin(width, use_ascii, capsys):
-    with patch('termaid.layout.engine.plan', wraps=plan) as measured_plan:
+    with patch.object(PreparedDiagram, 'plan', autospec=True, side_effect=PreparedDiagram.plan) as measured_plan:
         status = main([str(FIXTURE), '--width', str(width), '--strict-width', '--fit-mode', 'reflow',
                        '--gap', '2', '--padding-x', '2', '--padding-y', '0', '--format', 'styled-json',
                        *(['--ascii'] if use_ascii else [])])
     captured = capsys.readouterr()
     assert status == 0 and not captured.err
-    assert measured_plan.call_count <= 8
+    assert 1 <= measured_plan.call_count <= 8
     document = json.loads(captured.out)
     lines = [''.join(chunk['text'] for chunk in row) for row in document['lines']]
     assert max(map(display_width, lines)) <= width

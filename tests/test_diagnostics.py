@@ -89,12 +89,12 @@ def test_renderer_exceptions_are_not_misclassified_as_io_errors(
     tmp_path: Path, capsys, monkeypatch,
     exception_type: type[Exception], output_format: str,
 ):
-    import termaid.layout.engine as engine
+    import termaid.pipeline as engine
 
     def fail(*args: object, **kwargs: object) -> None:
         raise exception_type("failure\nwith details")
 
-    monkeypatch.setattr(engine, "plan", fail)
+    monkeypatch.setattr(engine.PreparedDiagram, "plan", fail)
     source_path = tmp_path / "input.mmd"
     source_path.write_text("graph LR; A-->B", encoding="utf-8")
     assert main([str(source_path), "--diagnostics-format", "json", "--format", output_format]) == 1

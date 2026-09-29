@@ -1,9 +1,9 @@
 """Subgraph spacing, bounds, and grid-to-drawing coordinate conversion."""
 from __future__ import annotations
 
-from ..graph.model import Direction, Graph, Subgraph
-from ..utils import display_width
-from .grid import SG_BORDER_PAD, SG_GAP_PER_LEVEL, SG_LABEL_HEIGHT, GridLayout, SubgraphBounds
+from termaid.core.graph import Direction, Graph, Subgraph
+from termaid.utils import display_width
+from termaid.layout.grid import SG_BORDER_PAD, SG_GAP_PER_LEVEL, SG_LABEL_HEIGHT, GridLayout, SubgraphBounds
 
 
 # Subgraph spacing and bounds

@@ -4,9 +4,9 @@ from __future__ import annotations
 from copy import deepcopy
 from dataclasses import dataclass
 
-from ..graph.model import Direction, Graph
-from ..routing.router import AttachDir, RoutedEdge, _avoid_group_titles, route_edges
-from .grid import GridLayout, compute_layout
+from termaid.core.graph import Direction, Graph
+from termaid.routing.router import AttachDir, RoutedEdge, avoid_group_titles, route_edges
+from termaid.layout.grid import GridLayout, compute_layout
 
 
 @dataclass
@@ -51,6 +51,6 @@ def plan_graph(
                                for x, y in route.draw_path]
             route.start_dir = flipped_directions.get(route.start_dir, route.start_dir)
             route.end_dir = flipped_directions.get(route.end_dir, route.end_dir)
-            route.draw_path = _avoid_group_titles(route.draw_path, layout)
+            route.draw_path = avoid_group_titles(route.draw_path, layout)
     layout_graph.direction = direction
     return GraphPlan(layout_graph, layout, routes, width, height)

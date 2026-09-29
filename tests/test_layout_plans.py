@@ -11,10 +11,10 @@ import pytest
 from termaid import parse
 from termaid.cli import main
 from termaid.layout.labels import LabelPlan, TextPlacement
-from termaid.parser.sequence import parse_sequence_diagram
-from termaid.renderer.canvas import Canvas
-from termaid.renderer.draw import render_graph_canvas
-from termaid.renderer.sequence import render_sequence
+from termaid.diagrams.sequence.syntax import parse_sequence_diagram
+from termaid.core.canvas import Canvas
+from termaid.renderer.graph import render_graph_canvas
+from termaid.diagrams.sequence.render import render_sequence
 
 
 FIXTURE = Path(__file__).parent / 'fixtures/production_lease_race.mmd'
@@ -96,7 +96,7 @@ def test_lease_race_labels_preserve_all_lifelines_and_message_content(
             assert all(chunk['style'] != 'arrow' for chunk in chunks)
             label_text.extend(chunk['text'] for chunk in chunks if chunk['style'] == 'edge_label')
     diagram = parse_sequence_diagram(FIXTURE.read_text())
-    from termaid.model.sequence import Message
+    from termaid.diagrams.sequence.syntax import Message
     messages = [event for event in diagram.events if isinstance(event, Message)]
     assert arrowheads == len(messages)
     assert ''.join(''.join(label_text).split()) == ''.join(

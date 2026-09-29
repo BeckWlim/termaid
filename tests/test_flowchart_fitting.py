@@ -6,9 +6,9 @@ import pytest
 
 from termaid.cli import main
 from termaid.layout.grid import compute_layout
-from termaid.parser.flowchart import parse_flowchart
-from termaid.renderer.canvas import Canvas
-from termaid.renderer.draw import _try_place_label
+from termaid.diagrams.flowchart import parse_flowchart
+from termaid.core.canvas import Canvas
+from termaid.renderer.graph import _try_place_label
 from termaid.routing.router import route_edges
 from termaid.utils import display_width
 
@@ -141,9 +141,9 @@ def test_no_return_needs_no_left_margin():
 
 @pytest.mark.parametrize("ascii_output,marker", [(False, "x"), (True, "x")])
 def test_unrelated_crossing_differs_from_shared_junction(ascii_output, marker):
-    from termaid.graph.model import Edge
+    from termaid.core.graph import Edge
     from termaid.renderer.charset import ASCII, UNICODE
-    from termaid.renderer.draw import _draw_edges
+    from termaid.renderer.graph import _draw_edges
     from termaid.routing.router import RoutedEdge
 
     graph = parse_flowchart("graph TD\nA --> B\nC --> D")

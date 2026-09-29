@@ -11,7 +11,7 @@ from collections.abc import Iterator
 from functools import cached_property
 from typing import Protocol
 
-from ..utils import display_width
+from termaid.utils import display_width
 
 
 class LabelSurface(Protocol):

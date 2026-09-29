@@ -9,7 +9,7 @@ import pytest
 
 from termaid import parse
 from termaid.cli import main
-from termaid.graph.model import Subgraph
+from termaid.core.graph import Subgraph
 from termaid.layout.graph_plan import plan_graph
 from termaid.layout.layers import assign_layers, separate_subgraph_layers
 

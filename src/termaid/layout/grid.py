@@ -28,7 +28,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 
-from ..graph.model import Direction, Graph, Subgraph
+from termaid.core.graph import Direction, Graph, Subgraph
 
 
 # ---------------------------------------------------------------------------
@@ -182,23 +182,9 @@ def compute_layout(
     """Compute the grid layout for a graph."""
     effective_gap = max(gap, 1)  # minimum 1 for arrow visibility
     # Lazy imports to avoid circular references at module load time
-    from .layers import (
-        assign_layers,
-        compute_gap_expansions,
-        expand_subgraph_edges,
-        order_layers,
-        separate_subgraph_layers,
-    )
-    from .placement import (
-        allocate_label_slack, place_nodes, compute_sizes, normalize_sizes,
-        reserve_return_margin, fit_vertical_node_columns,
-    )
-    from .geometry import (
-        adjust_for_negative_bounds,
-        compute_draw_coords,
-        compute_subgraph_bounds,
-        expand_gaps_for_subgraphs,
-    )
+    from termaid.layout.layers import assign_layers, compute_gap_expansions, expand_subgraph_edges, order_layers, separate_subgraph_layers
+    from termaid.layout.placement import allocate_label_slack, place_nodes, compute_sizes, normalize_sizes, reserve_return_margin, fit_vertical_node_columns
+    from termaid.layout.geometry import adjust_for_negative_bounds, compute_draw_coords, compute_subgraph_bounds, expand_gaps_for_subgraphs
 
     layout = GridLayout(width_budget=max_width)
     direction = graph.direction.normalized()

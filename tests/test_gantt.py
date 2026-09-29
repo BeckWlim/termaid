@@ -4,7 +4,7 @@ from __future__ import annotations
 from datetime import date
 
 from termaid import render
-from termaid.parser.timelines import parse_gantt
+from termaid.plugins.timelines import parse_gantt
 
 
 class TestGanttParser:

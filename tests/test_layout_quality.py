@@ -12,7 +12,7 @@ from termaid.cli import main
 from termaid.layout.graph_plan import plan_graph
 from termaid.layout.grid import GridCoord, GridLayout, NodePlacement
 from termaid.layout.layers import assign_layers
-from termaid.renderer.draw import render_graph_canvas
+from termaid.renderer.graph import render_graph_canvas
 from termaid.routing.router import AttachDir, RoutedEdge, _refine_terminal_routes, _separate_label_approaches, path_cells
 from termaid.utils import display_width
 

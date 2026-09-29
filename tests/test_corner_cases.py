@@ -8,12 +8,12 @@ from __future__ import annotations
 import pytest
 
 from termaid import render, parse
-from termaid.parser.flowchart import parse_flowchart
-from termaid.parser.sequence import parse_sequence_diagram
-from termaid.parser.classdiagram import parse_class_diagram
-from termaid.parser.erdiagram import parse_er_diagram
-from termaid.parser.blockdiagram import parse_block_diagram
-from termaid.parser.gitgraph import parse_git_graph
+from termaid.diagrams.flowchart import parse_flowchart
+from termaid.diagrams.sequence.syntax import parse_sequence_diagram
+from termaid.diagrams.classdiagram import parse_class_diagram
+from termaid.diagrams.erdiagram import parse_er_diagram
+from termaid.plugins.blockdiagram import parse_block_diagram
+from termaid.plugins.gitgraph import parse_git_graph
 
 
 # ── Silent error swallowing ──────────────────────────────────────────────────
@@ -115,7 +115,7 @@ class TestFlowchartParserEdgeCases:
 
     def test_invalid_direction_falls_back_to_tb(self):
         """Invalid direction string should fall back to TB."""
-        from termaid.graph.model import Direction
+        from termaid.core.graph import Direction
         g = parse_flowchart("graph INVALID\n  A --> B")
         assert g.direction == Direction.TB
 

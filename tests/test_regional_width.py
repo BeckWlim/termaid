@@ -10,9 +10,9 @@ from termaid.cli import main
 from termaid.layout.graph_plan import plan_graph
 from termaid.layout.labels import LabelPlan
 from termaid.renderer.charset import UNICODE
-from termaid.renderer.draw import _draw_edge_label, _draw_overhanging_branch_label, render_graph_canvas
-from termaid.layout.scene import LayoutScene
-from termaid.graph.model import Edge
+from termaid.renderer.graph import _draw_edge_label, _draw_overhanging_branch_label, render_graph_canvas
+from termaid.core.canvas import Canvas
+from termaid.core.graph import Edge
 from termaid.routing.router import RoutedEdge, path_cells
 from termaid.utils import display_width
 
@@ -144,7 +144,7 @@ def test_geometry_preserves_topology_and_clearance(width, budget):
 
 
 def test_short_label_can_overhang_its_exclusive_branch_without_overwriting_geometry():
-    scene = LayoutScene(20, 5)
+    scene = Canvas(20, 5)
     scene.draw_horizontal(3, 2, 17, UNICODE.horizontal)
     route = RoutedEdge(Edge('A', 'B', label='Offload'), draw_path=[(2, 3), (17, 3)],
                        label='Offload', label_paths=[[(10, 3), (13, 3)]])
@@ -167,7 +167,7 @@ def test_explicit_label_limit_without_width_budget_keeps_existing_wrapping():
 
 @pytest.mark.parametrize('vertical', [False, True])
 def test_overhanging_label_requires_an_exclusive_clear_anchor(vertical):
-    scene = LayoutScene(24, 8)
+    scene = Canvas(24, 8)
     if vertical:
         scene.draw_vertical(8, 0, 7, '│')
         route_path = [(8, 0), (8, 7)]
@@ -189,7 +189,7 @@ def test_overhanging_label_requires_an_exclusive_clear_anchor(vertical):
 
 
 def test_short_horizontal_label_can_use_the_full_gap_between_protected_boxes():
-    scene = LayoutScene(16, 6)
+    scene = Canvas(16, 6)
     for row in range(6):
         for col in range(16):
             if col < 8 or col > 10:
@@ -205,7 +205,7 @@ def test_short_horizontal_label_can_use_the_full_gap_between_protected_boxes():
 
 
 def test_exclusive_closed_loop_preserves_its_full_label_path():
-    scene = LayoutScene(20, 10)
+    scene = Canvas(20, 10)
     loop_path = [(5, 1), (12, 1), (12, 7), (5, 7), (5, 1)]
     for first, last in zip(loop_path, loop_path[1:]):
         if first[0] == last[0]:

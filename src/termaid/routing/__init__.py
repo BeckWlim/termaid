@@ -1,3 +1,3 @@
-from .router import route_edges, RoutedEdge
+from termaid.routing.router import route_edges, RoutedEdge
 
 __all__ = ["route_edges", "RoutedEdge"]

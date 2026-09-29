@@ -2,10 +2,10 @@
 from __future__ import annotations
 
 from termaid import render
-from termaid.parser.sequence import parse_sequence_diagram
-from termaid.parser.classdiagram import parse_class_diagram
-from termaid.parser.erdiagram import parse_er_diagram
-from termaid.parser.gitgraph import parse_git_graph
+from termaid.diagrams.sequence.syntax import parse_sequence_diagram
+from termaid.diagrams.classdiagram import parse_class_diagram
+from termaid.diagrams.erdiagram import parse_er_diagram
+from termaid.plugins.gitgraph import parse_git_graph
 
 
 class TestWarnings:

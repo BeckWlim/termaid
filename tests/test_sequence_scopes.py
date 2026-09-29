@@ -4,8 +4,8 @@ from __future__ import annotations
 import pytest
 
 from termaid import render
-from termaid.parser.sequence import parse_sequence_diagram
-from termaid.renderer.sequence import render_sequence
+from termaid.diagrams.sequence.syntax import parse_sequence_diagram
+from termaid.diagrams.sequence.render import render_sequence
 from termaid.utils import display_width
 
 

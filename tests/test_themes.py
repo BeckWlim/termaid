@@ -45,18 +45,18 @@ class TestCanvasStyleGrid:
     """Test that canvas style grid works correctly."""
 
     def test_style_grid_initialized(self):
-        from termaid.renderer.canvas import Canvas
+        from termaid.core.canvas import Canvas
         c = Canvas(10, 5)
         assert c.get_style(0, 0) == "default"
 
     def test_put_with_style(self):
-        from termaid.renderer.canvas import Canvas
+        from termaid.core.canvas import Canvas
         c = Canvas(10, 5)
         c.put(0, 0, "X", style="node")
         assert c.get_style(0, 0) == "node"
 
     def test_to_styled_pairs(self):
-        from termaid.renderer.canvas import Canvas
+        from termaid.core.canvas import Canvas
         c = Canvas(5, 3)
         c.put(0, 0, "A", style="node")
         c.put(0, 1, "─", style="edge")
@@ -67,7 +67,7 @@ class TestCanvasStyleGrid:
     def test_styles_in_rendered_output(self):
         """Verify style keys are set during rendering."""
         from termaid import parse
-        from termaid.renderer.draw import render_graph_canvas
+        from termaid.renderer.graph import render_graph_canvas
 
         graph = parse("graph LR\n  A --> B")
         canvas = render_graph_canvas(graph)

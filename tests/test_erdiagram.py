@@ -2,7 +2,7 @@
 from __future__ import annotations
 
 from termaid import render
-from termaid.parser.erdiagram import parse_er_diagram
+from termaid.diagrams.erdiagram import parse_er_diagram
 
 
 # ── Parser tests ──────────────────────────────────────────────────────────────

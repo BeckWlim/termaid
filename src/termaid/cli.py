@@ -7,17 +7,15 @@ import os
 import shutil
 import sys
 from contextlib import nullcontext
-from typing import TYPE_CHECKING, Callable, NoReturn, TypeVar
-from .diagnostics import Diagnostic
-from .utils import display_width
-from .layout.engine import DiagramPlan
-from .layout.fitting import score_render
+from typing import TYPE_CHECKING, NoReturn
+from termaid.diagnostics import Diagnostic
+from termaid.utils import display_width
+from termaid.core.canvas import DiagramPlan
+from termaid.core.contracts import RenderConfig
+from termaid.layout.fitting import FitOptions, fit
 
 if TYPE_CHECKING:
     from rich.text import Text
-
-
-RenderResult = TypeVar("RenderResult", str, DiagramPlan)
 
 
 class _ArgumentParser(argparse.ArgumentParser):
@@ -75,116 +73,6 @@ def _max_line_width(text: str) -> int:
     return max((display_width(line) for line in text.split("\n")), default=0)
 
 
-def _plain(result: str | DiagramPlan) -> str:
-    """Measure canonical geometry, independently of the output adapter."""
-    return result if isinstance(result, str) else result.to_string()
-
-
-def _auto_fit(
-    result: RenderResult,
-    source: str,
-    args: argparse.Namespace,
-    render_fn: Callable[..., RenderResult],
-    target_width: int | None = None,
-) -> RenderResult:
-    """Re-render with smaller gap/padding if the diagram exceeds target width.
-
-    target_width: explicit width limit (from --width), or None to use
-    terminal width.  Disabled when --no-auto-fit is set or output is
-    not a terminal (unless --width is explicitly given).
-    """
-    if target_width is None and (args.no_auto_fit or not sys.stdout.isatty()):
-        return result
-    width_limit = target_width if target_width is not None else shutil.get_terminal_size().columns
-    initial_score = score_render(_plain(result), width_limit, label_budget=65,
-                                 height_limit=args.max_height)
-    if initial_score.width_overflow == 0 and (
-        args.fit_mode == "compact" or initial_score.references == initial_score.height_overflow == 0
-    ):
-        return result
-
-    def render_candidate(*, gap: int, padding_x: int, label_width: int | None = None,
-                         force_vertical: bool = False) -> RenderResult:
-        return render_fn(
-            source,
-            use_ascii=args.ascii,
-            padding_x=padding_x,
-            padding_y=args.padding_y,
-            rounded_edges=not args.sharp_edges,
-            gap=gap,
-            inline_edge_labels=args.inline_edge_labels,
-            uniform_nodes=args.uniform_nodes,
-            arrow_position=args.arrow_position,
-            max_width=width_limit,
-            max_label_width=label_width,
-            force_vertical=force_vertical,
-        )
-
-    best_result = result
-    best_score = initial_score
-    if args.fit_mode == "compact":
-        # Spacing-only mode preserves labels and attempts at most three layouts.
-        for candidate_gap, candidate_padding in ((min(args.gap, 2), args.padding_x), (1, 0)):
-            candidate = render_candidate(gap=candidate_gap, padding_x=candidate_padding)
-            candidate_score = score_render(_plain(candidate), width_limit, label_budget=65,
-                                           height_limit=args.max_height)
-            if candidate_score < best_score:
-                best_result, best_score = candidate, candidate_score
-            if candidate_score.width_overflow == 0:
-                return candidate
-    else:
-        # Keep the eight-render bound: initial + six measured candidates +
-        # optional spacing/reflow retry. Compare every visited candidate by quality.
-        lower = 1
-        upper = min(width_limit, 64)
-        for _ in range(6):
-            if lower > upper:
-                break
-            label_width = (lower + upper) // 2
-            candidate = render_candidate(gap=1, padding_x=0, label_width=label_width)
-            candidate_score = score_render(_plain(candidate), width_limit,
-                                           label_budget=label_width, height_limit=args.max_height)
-            if candidate_score < best_score:
-                best_result, best_score = candidate, candidate_score
-            if candidate_score.width_overflow == 0:
-                lower = label_width + 1
-            else:
-                upper = label_width - 1
-
-        if best_score.width_overflow == 0 and best_score.height_overflow == 0:
-            if best_score.references:
-                # Feed label failures back into layout once. Extra routing
-                # space may remove references without shrinking node names.
-                spaced_budget = -best_score.negative_label_budget
-                spaced_result = render_candidate(gap=3, padding_x=0,
-                                                 label_width=spaced_budget)
-                spaced_score = score_render(_plain(spaced_result), width_limit,
-                                            label_budget=spaced_budget, height_limit=args.max_height)
-                if spaced_score < best_score:
-                    return spaced_result
-            return best_result
-
-        if args.fit_mode == "reflow":
-            vertical_budget = max(1, min(64, width_limit - 2))
-            vertical_result = render_candidate(gap=1, padding_x=0, label_width=vertical_budget,
-                                               force_vertical=True)
-            vertical_score = score_render(_plain(vertical_result), width_limit,
-                                          label_budget=vertical_budget, height_limit=args.max_height)
-            if vertical_score < best_score:
-                best_result, best_score = vertical_result, vertical_score
-
-    if best_score.width_overflow > 0 and not args.strict_width:
-        Diagnostic(
-            "width_exceeded",
-            f"diagram is {best_score.width} cols wide "
-            f"but target is {width_limit}. "
-            f"Try: less -S, or use 'graph TD' for vertical layout.",
-            exit_code=0, severity="warning",
-            details={"actual_width": best_score.width, "max_width": width_limit},
-        ).emit(args.diagnostics_format)
-    return best_result
-
-
 def _read_source(args: argparse.Namespace) -> str | None:
     """Read diagram source from file or stdin. Returns None on error."""
     if args.file:
@@ -217,8 +105,8 @@ def _use_color(args: argparse.Namespace) -> bool:
     return True
 
 
-def main(argv: list[str] | None = None) -> int:
-    """Main CLI entry point."""
+def build_parser(argv: list[str] | None = None) -> argparse.ArgumentParser:
+    """Build arguments after selecting the diagnostic transport."""
     # Resolve the diagnostic transport before parsing other options, so even
     # argparse failures can be consumed by an editor's process callback.
     diagnostic_parser = argparse.ArgumentParser(add_help=False, allow_abbrev=False)
@@ -366,7 +254,12 @@ def main(argv: list[str] | None = None) -> int:
         version=f"%(prog)s {_get_version()}",
     )
 
-    args = parser.parse_args(argv)
+    return parser
+
+
+def main(argv: list[str] | None = None) -> int:
+    """Read input, prepare once, fit, validate, and emit one output."""
+    args = build_parser(argv).parse_args(argv)
 
     if args.strict_width and args.width is None:
         return _report(args, "invalid_arguments", "--strict-width requires --width.", exit_code=2)
@@ -393,7 +286,7 @@ def main(argv: list[str] | None = None) -> int:
     # JSON ingest: convert structured data to Mermaid syntax
     if args.json:
         try:
-            from .ingest import json_to_mermaid
+            from termaid.ingest import json_to_mermaid
             diagram_source = json_to_mermaid(normalized_source, args.json)
         except Exception as e:
             return _report(args, "input_conversion_failed", f"Error converting JSON to {args.json}: {e}")
@@ -409,11 +302,11 @@ def main(argv: list[str] | None = None) -> int:
 
     # Every output format fits and validates the same immutable plan. Adapters
     # serialize only the selected candidate; they never participate in fitting.
-    from .layout.engine import plan
+    from termaid.pipeline import prepare
 
     try:
-        initial_plan = plan(
-            render_source,
+        prepared_diagram = prepare(render_source)
+        config = RenderConfig(
             use_ascii=args.ascii,
             padding_x=args.padding_x,
             padding_y=args.padding_y,
@@ -424,10 +317,23 @@ def main(argv: list[str] | None = None) -> int:
             arrow_position=args.arrow_position,
             max_width=args.width,
         )
-        fitted_plan = _auto_fit(
-            initial_plan, render_source, args, render_fn=plan,
-            target_width=args.width,
-        )
+        initial_plan = prepared_diagram.plan(config)
+        fitting_enabled = args.width is not None or (not args.no_auto_fit and sys.stdout.isatty())
+        if fitting_enabled:
+            width_limit = args.width if args.width is not None else shutil.get_terminal_size().columns
+            fit_result = fit(initial_plan, prepared_diagram.plan, config,
+                             FitOptions(width_limit, args.fit_mode, args.max_height))
+            fitted_plan = fit_result.plan
+            if fit_result.score.width_overflow > 0 and not args.strict_width:
+                Diagnostic(
+                    "width_exceeded",
+                    f"diagram is {fit_result.score.width} cols wide but target is {width_limit}. "
+                    "Try: less -S, or use 'graph TD' for vertical layout.",
+                    exit_code=0, severity="warning",
+                    details={"actual_width": fit_result.score.width, "max_width": width_limit},
+                ).emit(args.diagnostics_format)
+        else:
+            fitted_plan = initial_plan
         plain_output = fitted_plan.to_string()
         constraint_exit_code = _check_output(plain_output, args)
         if constraint_exit_code is not None:
